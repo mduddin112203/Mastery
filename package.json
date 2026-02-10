@@ -1,13 +1,11 @@
 {
   "name": "mastery",
   "version": "1.0.0",
-  "description": "Mastery — Duolingo-style daily practice for tech interviews",
+  "description": "Mastery — Duolingo-style daily practice for tech interviews (Supabase backend)",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:frontend": "npm --prefix frontend run dev",
-    "dev:backend": "npm --prefix backend run dev",
-    "install:all": "npm install && npm --prefix frontend install && npm --prefix backend install",
+    "dev": "npm --prefix frontend run dev",
+    "install:all": "npm install && npm --prefix frontend install",
     "build": "npm --prefix frontend run build"
   },
   "devDependencies": {

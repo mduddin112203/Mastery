@@ -77,13 +77,6 @@ Frontend runs on `http://localhost:5173`
 | `VITE_SUPABASE_URL` | Your Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Your Supabase publishable (anon) key |
 
-### Backend (`backend/.env`) — only for admin scripts / seeds
-
-| Variable | Description |
-|----------|-------------|
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role (secret) key |
-
 > **Never commit `.env` files.** Use `.env.example` as a template.
 
 ---

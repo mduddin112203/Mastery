@@ -1,26 +1,18 @@
--- ============================================================
--- Mastery — Supabase Postgres Schema
--- ============================================================
--- Supabase already provides auth.users via Supabase Auth.
--- This schema creates the app-level tables that reference auth.users.
--- Run this in the Supabase SQL Editor.
--- ============================================================
+-- Mastery database schema
+-- run this in the Supabase SQL Editor to set up all tables
 
--- Enable UUID generation
+-- we need this for generating UUIDs
 create extension if not exists "uuid-ossp";
 
--- ============================================================
--- profiles (links to auth.users)
--- ============================================================
+
+-- profiles table — every user gets one, linked to supabase auth
 create table profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   role text not null default 'user' check (role in ('user', 'admin')),
   created_at timestamptz default now()
 );
 
--- ============================================================
--- user_settings
--- ============================================================
+-- user settings — onboarding preferences, one row per user
 create table user_settings (
   user_id uuid primary key references profiles(id) on delete cascade,
   goal text default 'interview_prep' check (goal in ('break_into_tech', 'interview_prep', 'stay_sharp')),
@@ -30,9 +22,7 @@ create table user_settings (
   updated_at timestamptz default now()
 );
 
--- ============================================================
--- questions
--- ============================================================
+-- questions — the full question bank across all three lanes
 create table questions (
   id uuid primary key default uuid_generate_v4(),
   lane text not null check (lane in ('code', 'system', 'behavioral')),
@@ -50,9 +40,7 @@ create table questions (
   created_at timestamptz default now()
 );
 
--- ============================================================
--- daily_packs (one per user per day)
--- ============================================================
+-- daily packs — each user gets one pack per day with 3 questions
 create table daily_packs (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references profiles(id) on delete cascade,
@@ -62,9 +50,7 @@ create table daily_packs (
   unique(user_id, pack_date)
 );
 
--- ============================================================
--- daily_pack_items (the 3 questions inside each daily pack)
--- ============================================================
+-- daily pack items — the 3 questions inside a pack
 create table daily_pack_items (
   id uuid primary key default uuid_generate_v4(),
   pack_id uuid not null references daily_packs(id) on delete cascade,
@@ -73,9 +59,7 @@ create table daily_pack_items (
   position int not null
 );
 
--- ============================================================
--- attempts (tracks each answer a user gives)
--- ============================================================
+-- attempts — logs every answer a user submits
 create table attempts (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references profiles(id) on delete cascade,
@@ -87,9 +71,7 @@ create table attempts (
   created_at timestamptz default now()
 );
 
--- ============================================================
--- behavioral_answers (saved STAR interview stories)
--- ============================================================
+-- behavioral answers — saved STAR responses for interview prep
 create table behavioral_answers (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references profiles(id) on delete cascade,
@@ -102,9 +84,7 @@ create table behavioral_answers (
   updated_at timestamptz default now()
 );
 
--- ============================================================
--- reports (flagged questions — optional)
--- ============================================================
+-- reports — lets users flag bad/wrong questions
 create table reports (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references profiles(id) on delete cascade,
@@ -113,57 +93,48 @@ create table reports (
   created_at timestamptz default now()
 );
 
--- ============================================================
--- Row Level Security (RLS)
--- ============================================================
 
--- profiles: users can read/update their own row
+-- RLS (row level security) — users can only touch their own data
+
 alter table profiles enable row level security;
-create policy "Users can view own profile" on profiles for select using (auth.uid() = id);
-create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
+create policy "users read own profile" on profiles for select using (auth.uid() = id);
+create policy "users update own profile" on profiles for update using (auth.uid() = id);
 
--- user_settings: users can CRUD their own settings
 alter table user_settings enable row level security;
-create policy "Users can view own settings" on user_settings for select using (auth.uid() = user_id);
-create policy "Users can insert own settings" on user_settings for insert with check (auth.uid() = user_id);
-create policy "Users can update own settings" on user_settings for update using (auth.uid() = user_id);
+create policy "users read own settings" on user_settings for select using (auth.uid() = user_id);
+create policy "users insert own settings" on user_settings for insert with check (auth.uid() = user_id);
+create policy "users update own settings" on user_settings for update using (auth.uid() = user_id);
 
--- questions: public read, admin write (admin policies can be added later)
+-- questions are public read — anyone logged in can see active ones
 alter table questions enable row level security;
-create policy "Anyone can read active questions" on questions for select using (is_active = true);
+create policy "read active questions" on questions for select using (is_active = true);
 
--- daily_packs: users can only access their own packs
 alter table daily_packs enable row level security;
-create policy "Users can view own packs" on daily_packs for select using (auth.uid() = user_id);
-create policy "Users can insert own packs" on daily_packs for insert with check (auth.uid() = user_id);
-create policy "Users can update own packs" on daily_packs for update using (auth.uid() = user_id);
+create policy "users read own packs" on daily_packs for select using (auth.uid() = user_id);
+create policy "users insert own packs" on daily_packs for insert with check (auth.uid() = user_id);
+create policy "users update own packs" on daily_packs for update using (auth.uid() = user_id);
 
--- daily_pack_items: users access through their packs
 alter table daily_pack_items enable row level security;
-create policy "Users can view own pack items" on daily_pack_items for select
+create policy "users read own pack items" on daily_pack_items for select
   using (pack_id in (select id from daily_packs where user_id = auth.uid()));
-create policy "Users can insert own pack items" on daily_pack_items for insert
+create policy "users insert own pack items" on daily_pack_items for insert
   with check (pack_id in (select id from daily_packs where user_id = auth.uid()));
 
--- attempts: users can only access their own attempts
 alter table attempts enable row level security;
-create policy "Users can view own attempts" on attempts for select using (auth.uid() = user_id);
-create policy "Users can insert own attempts" on attempts for insert with check (auth.uid() = user_id);
+create policy "users read own attempts" on attempts for select using (auth.uid() = user_id);
+create policy "users insert own attempts" on attempts for insert with check (auth.uid() = user_id);
 
--- behavioral_answers: users can only access their own
 alter table behavioral_answers enable row level security;
-create policy "Users can view own behavioral answers" on behavioral_answers for select using (auth.uid() = user_id);
-create policy "Users can insert own behavioral answers" on behavioral_answers for insert with check (auth.uid() = user_id);
-create policy "Users can update own behavioral answers" on behavioral_answers for update using (auth.uid() = user_id);
+create policy "users read own behavioral answers" on behavioral_answers for select using (auth.uid() = user_id);
+create policy "users insert own behavioral answers" on behavioral_answers for insert with check (auth.uid() = user_id);
+create policy "users update own behavioral answers" on behavioral_answers for update using (auth.uid() = user_id);
 
--- reports: users can only access their own
 alter table reports enable row level security;
-create policy "Users can view own reports" on reports for select using (auth.uid() = user_id);
-create policy "Users can insert own reports" on reports for insert with check (auth.uid() = user_id);
+create policy "users read own reports" on reports for select using (auth.uid() = user_id);
+create policy "users insert own reports" on reports for insert with check (auth.uid() = user_id);
 
--- ============================================================
--- Auto-create profile on signup (trigger)
--- ============================================================
+
+-- when someone signs up through supabase auth, auto-create their profile row
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin

@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+:root {
+  --mastery-primary: #4F46E5;
+  --mastery-bg: #F8FAFC;
+  --mastery-card: #FFFFFF;
+  --mastery-text: #0F172A;
+  --mastery-border: #E2E8F0;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+}

@@ -36,9 +36,9 @@ export default function Landing() {
             <img
               src="/main-logo.png"
               alt="Mastery"
-              className="h-40 sm:h-48 w-auto brightness-0 invert contrast-110 drop-shadow-md"
+              className="h-32 sm:h-40 w-auto brightness-0 invert contrast-110 drop-shadow-md"
             />
-            <h1 className="mt-6 text-3xl sm:text-4xl font-bold text-white leading-tight">
+            <h1 className="mt-8 text-3xl sm:text-4xl font-bold text-white leading-tight">
               Master Tech Interviews,<br />5 Minutes a Day
             </h1>
             <p className="mt-3 text-base sm:text-lg text-indigo-100 max-w-lg">

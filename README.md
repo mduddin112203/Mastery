@@ -22,7 +22,7 @@ The platform emphasizes consistency, allowing users to complete meaningful pract
 
 | Layer | Tech |
 |-------|------|
-| Frontend | React (Vite), Tailwind CSS, React Router, Supabase JS Client, React Hook Form |
+| Frontend | React (Vite), Tailwind CSS, React Router, Supabase JS Client, React Hook Form | -- Currently in progress
 | Backend | Supabase (managed — no custom server) |
 | Database | Supabase Postgres |
 | Auth | Supabase Auth (email/password, optional OAuth later) |

@@ -1,9 +1,7 @@
 -- Mastery database schema
--- run this in the Supabase SQL Editor to set up all tables
 
 -- we need this for generating UUIDs
 create extension if not exists "uuid-ossp";
-
 
 -- profiles table — every user gets one, linked to supabase auth
 create table profiles (
@@ -54,17 +52,21 @@ create table daily_packs (
 create table daily_pack_items (
   id uuid primary key default uuid_generate_v4(),
   pack_id uuid not null references daily_packs(id) on delete cascade,
-  question_id uuid not null references questions(id) on delete cascade,
+  question_id uuid not null references questions(id) on delete restrict,
   lane text not null check (lane in ('code', 'system', 'behavioral')),
-  position int not null
+  position int not null,
+  unique (pack_id, position),
+  unique (pack_id, question_id)
 );
 
 -- attempts — logs every answer a user submits
+-- don't delete past questions with attempts - use questions.is_active = false
 create table attempts (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references profiles(id) on delete cascade,
-  question_id uuid not null references questions(id) on delete cascade,
+  question_id uuid not null references questions(id) on delete restrict,
   pack_id uuid default null references daily_packs(id) on delete set null,
+  selected_index int not null check (selected_index >= 0),
   is_correct boolean not null,
   confidence text default null check (confidence is null or confidence in ('easy', 'ok', 'hard')),
   time_spent_sec int default null,
@@ -95,24 +97,54 @@ create table reports (
 
 
 -- RLS (row level security) — users can only touch their own data
-
 alter table profiles enable row level security;
 create policy "users read own profile" on profiles for select using (auth.uid() = id);
-create policy "users update own profile" on profiles for update using (auth.uid() = id);
+create policy "users update own profile" on profiles
+  for update using (auth.uid() = id)
+  with check (auth.uid() = id);
 
 alter table user_settings enable row level security;
 create policy "users read own settings" on user_settings for select using (auth.uid() = user_id);
 create policy "users insert own settings" on user_settings for insert with check (auth.uid() = user_id);
-create policy "users update own settings" on user_settings for update using (auth.uid() = user_id);
+create policy "users update own settings" on user_settings
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- questions are public read — anyone logged in can see active ones
 alter table questions enable row level security;
 create policy "read active questions" on questions for select using (is_active = true);
 
+-- admin policies
+create policy "admins read all questions" on questions
+  for select using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
+  );
+
+create policy "admins insert questions" on questions
+  for insert with check (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
+  );
+
+create policy "admins update questions" on questions
+  for update using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
+  )
+  with check (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
+  );
+
+create policy "admins delete questions" on questions
+  for delete using (
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin')
+  );
+
 alter table daily_packs enable row level security;
 create policy "users read own packs" on daily_packs for select using (auth.uid() = user_id);
 create policy "users insert own packs" on daily_packs for insert with check (auth.uid() = user_id);
-create policy "users update own packs" on daily_packs for update using (auth.uid() = user_id);
+
+create policy "users update own packs" on daily_packs
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 alter table daily_pack_items enable row level security;
 create policy "users read own pack items" on daily_pack_items for select
@@ -127,11 +159,38 @@ create policy "users insert own attempts" on attempts for insert with check (aut
 alter table behavioral_answers enable row level security;
 create policy "users read own behavioral answers" on behavioral_answers for select using (auth.uid() = user_id);
 create policy "users insert own behavioral answers" on behavioral_answers for insert with check (auth.uid() = user_id);
-create policy "users update own behavioral answers" on behavioral_answers for update using (auth.uid() = user_id);
+
+create policy "users update own behavioral answers" on behavioral_answers
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 alter table reports enable row level security;
 create policy "users read own reports" on reports for select using (auth.uid() = user_id);
 create policy "users insert own reports" on reports for insert with check (auth.uid() = user_id);
+
+create or replace function public.set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists set_user_settings_updated_at on public.user_settings;
+create trigger set_user_settings_updated_at
+  before update on public.user_settings
+  for each row execute procedure public.set_updated_at();
+
+drop trigger if exists set_behavioral_answers_updated_at on public.behavioral_answers;
+create trigger set_behavioral_answers_updated_at
+  before update on public.behavioral_answers
+  for each row execute procedure public.set_updated_at();
+
+create index if not exists idx_attempts_user_created_at on public.attempts (user_id, created_at desc);
+create index if not exists idx_attempts_user_question_created_at on public.attempts (user_id, question_id, created_at desc);
+create index if not exists idx_daily_packs_user_pack_date on public.daily_packs (user_id, pack_date);
+create index if not exists idx_daily_pack_items_pack_position on public.daily_pack_items (pack_id, position);
+create index if not exists idx_questions_active_filters on public.questions (is_active, lane, level, track, language);
 
 
 -- when someone signs up through supabase auth, auto-create their profile row

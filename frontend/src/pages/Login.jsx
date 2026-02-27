@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, Navigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
+import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -8,6 +9,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
+  const { user, loading } = useAuth()
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -16,16 +18,23 @@ export default function Login() {
     const { error: err } = await supabase.auth.signInWithPassword({ email, password })
     setSubmitting(false)
     if (err) {
-      setError(err.message)
+      if (err.message && err.message.toLowerCase().includes('email not confirmed')) {
+        setError('Email not confirmed yet. Check your inbox for the confirmation link, then try again.')
+      } else {
+        setError(err.message)
+      }
       return
     }
     navigate('/home', { replace: true })
   }
 
+  if (!loading && user) {
+    return <Navigate to="/home" replace />
+  }
+
   return (
     <div className="min-h-screen bg-[var(--mastery-bg)] flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-[22rem]">
-        <img src="/main-logo.png" alt="Mastery" className="h-16 w-auto mx-auto mb-8" />
         <div className="bg-white rounded-2xl border border-[var(--mastery-border)] shadow-sm p-6">
           <h1 className="text-xl font-semibold text-[var(--mastery-text)] mb-5">Log in</h1>
           <form onSubmit={handleSubmit} className="space-y-4">

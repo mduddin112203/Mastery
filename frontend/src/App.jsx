@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import BaseLayout from './components/BaseLayout'
 import ProtectedLayout from './components/ProtectedLayout'
 import Landing from './pages/Landing'
@@ -10,6 +11,7 @@ import Onboarding from './pages/Onboarding'
 import Practice from './pages/Practice'
 import Behavioral from './pages/Behavioral'
 import Progress from './pages/Progress'
+import Profile from './pages/Profile'
 import Admin from './pages/Admin'
 
 function AppRoutes() {
@@ -26,6 +28,7 @@ function AppRoutes() {
         <Route path="practice" element={<Practice />} />
         <Route path="behavioral" element={<Behavioral />} />
         <Route path="progress" element={<Progress />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="admin" element={<Admin />} />
       </Route>
     </Routes>
@@ -34,10 +37,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
   )
 }

@@ -57,8 +57,8 @@ cp frontend/.env.example frontend/.env
 # Then edit frontend/.env with your Supabase URL and anon key
 
 # 3. Set up the database
-# Copy the contents of database/schema.sql into the Supabase SQL Editor and run it.
-# This creates all tables, RLS policies, and the auto-profile trigger.
+# Run in Supabase SQL Editor (in order): schema.sql, then migrations/*.sql, then seed.sql.
+# This creates tables, RLS, triggers, pack RPC, and the question bank.
 
 # 4. Run the frontend
 npm run dev
@@ -96,6 +96,12 @@ All tables live in **Supabase Postgres**. The full schema including RLS policies
 - `reports` — flagged questions (optional)
 
 **Security:** Row Level Security (RLS) is enabled on all user-data tables. Users can only access their own rows (`auth.uid() = user_id`).
+
+**SQL files:**
+- `schema.sql` — tables, RLS, triggers (run first)
+- `seed.sql` — question bank (Code + System + Behavioral; run after schema and migrations)
+- `maintenance.sql` — optional scripts (e.g. remove duplicate questions)
+- `migrations/` — dated migrations (run in order after schema)
 
 ---
 

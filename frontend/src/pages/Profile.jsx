@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../services/supabase'
 
@@ -28,13 +27,14 @@ const LANGUAGES = [
   { value: 'java', label: 'Java' },
 ]
 
-export default function Onboarding() {
+const inputClass =
+  'mt-1 block w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-[#0F172A]'
+
+export default function Profile() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
-  const [saved, setSaved] = useState(false)
   const [fetchError, setFetchError] = useState(null)
-  const [isFirstTime, setIsFirstTime] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
   const {
     register,
@@ -64,12 +64,7 @@ export default function Onboarding() {
         .maybeSingle()
       if (cancelled) return
       setFetchError(error?.message || null)
-      if (data) {
-        reset(data)
-        setIsFirstTime(false)
-      } else {
-        setIsFirstTime(true)
-      }
+      if (data) reset(data)
       setLoading(false)
     })()
     return () => { cancelled = true }
@@ -77,7 +72,8 @@ export default function Onboarding() {
 
   const onSubmit = async (values) => {
     if (!user?.id) return
-    setSaved(false)
+    setSaveSuccess(false)
+    setFetchError(null)
     const { error } = await supabase.from('user_settings').upsert(
       {
         user_id: user.id,
@@ -92,16 +88,14 @@ export default function Onboarding() {
       setFetchError(error.message)
       return
     }
-    setFetchError(null)
-    setSaved(true)
-    navigate('/home', { replace: true })
+    setSaveSuccess(true)
   }
 
   if (!user) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
         <div className="max-w-2xl mx-auto px-4 py-12">
-          <p className="text-slate-600">Sign in to set your preferences.</p>
+          <p className="text-slate-600">Sign in to view your profile.</p>
         </div>
       </div>
     )
@@ -111,7 +105,7 @@ export default function Onboarding() {
     return (
       <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
         <div className="max-w-2xl mx-auto px-4 py-12">
-          <p className="text-slate-600">Loading your settings…</p>
+          <p className="text-slate-600">Loading profile…</p>
         </div>
       </div>
     )
@@ -120,13 +114,9 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
       <div className="max-w-2xl mx-auto px-4 py-12">
-        <h1 className="text-xl font-semibold text-[#0F172A]">
-          {isFirstTime ? 'Create your profile' : 'Preferences'}
-        </h1>
+        <h1 className="text-xl font-semibold text-[#0F172A]">Profile</h1>
         <p className="mt-1 text-sm text-slate-600">
-          {isFirstTime
-            ? 'Set your goals and preferences so your daily pack is personalized for you. You can change these later in Preferences.'
-            : 'Used to personalize your daily pack (level, track, language).'}
+          Your account and preferences. Used to personalize your daily pack.
         </p>
 
         {fetchError && (
@@ -135,19 +125,23 @@ export default function Onboarding() {
           </div>
         )}
 
-        {saved && (
+        {saveSuccess && (
           <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-            Profile saved. Taking you to today&apos;s pack…
+            Preferences saved.
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6">
+        <div className="mt-6">
+          <label className="block text-sm font-medium text-slate-500">Email</label>
+          <p className="mt-0.5 text-[#0F172A]" title={user.email}>
+            {user.email}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
           <div>
             <label className="block text-sm font-medium text-[#0F172A]">Goal</label>
-            <select
-              {...register('goal', { required: true })}
-              className="mt-1 block w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-[#0F172A]"
-            >
+            <select {...register('goal', { required: true })} className={inputClass}>
               {GOALS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -159,10 +153,7 @@ export default function Onboarding() {
 
           <div>
             <label className="block text-sm font-medium text-[#0F172A]">Level</label>
-            <select
-              {...register('level', { required: true })}
-              className="mt-1 block w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-[#0F172A]"
-            >
+            <select {...register('level', { required: true })} className={inputClass}>
               {LEVELS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -174,10 +165,7 @@ export default function Onboarding() {
 
           <div>
             <label className="block text-sm font-medium text-[#0F172A]">Track</label>
-            <select
-              {...register('track', { required: true })}
-              className="mt-1 block w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-[#0F172A]"
-            >
+            <select {...register('track', { required: true })} className={inputClass}>
               {TRACKS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -188,11 +176,10 @@ export default function Onboarding() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#0F172A]">Preferred language (for code)</label>
-            <select
-              {...register('language', { required: true })}
-              className="mt-1 block w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-[#0F172A]"
-            >
+            <label className="block text-sm font-medium text-[#0F172A]">
+              Preferred language (for code)
+            </label>
+            <select {...register('language', { required: true })} className={inputClass}>
               {LANGUAGES.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -207,7 +194,7 @@ export default function Onboarding() {
             disabled={isSubmitting}
             className="rounded-lg bg-[#4F46E5] px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-[#4338CA] disabled:opacity-50"
           >
-            {isSubmitting ? 'Saving…' : isFirstTime ? 'Create profile & continue' : 'Save preferences'}
+            {isSubmitting ? 'Saving…' : 'Save preferences'}
           </button>
         </form>
       </div>

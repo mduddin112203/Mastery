@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, Navigate } from 'react-router-dom'
 import { supabase } from '../services/supabase'
 import { useAuth } from '../context/AuthContext'
+import { hasUserProfile } from '../services/profileService'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -11,11 +12,20 @@ export default function Login() {
   const navigate = useNavigate()
   const { user, loading } = useAuth()
 
+  useEffect(() => {
+    if (loading || !user?.id) return
+    let cancelled = false
+    hasUserProfile(user.id).then((ok) => {
+      if (!cancelled) navigate(ok ? '/home' : '/onboarding', { replace: true })
+    })
+    return () => { cancelled = true }
+  }, [loading, user?.id, navigate])
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setSubmitting(true)
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
     setSubmitting(false)
     if (err) {
       if (err.message && err.message.toLowerCase().includes('email not confirmed')) {
@@ -25,11 +35,16 @@ export default function Login() {
       }
       return
     }
-    navigate('/home', { replace: true })
+    const profileOk = data?.user?.id ? await hasUserProfile(data.user.id) : false
+    navigate(profileOk ? '/home' : '/onboarding', { replace: true })
   }
 
   if (!loading && user) {
-    return <Navigate to="/home" replace />
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <p className="text-slate-500">Loading…</p>
+      </div>
+    )
   }
 
   return (

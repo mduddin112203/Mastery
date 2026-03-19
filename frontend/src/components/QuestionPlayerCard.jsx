@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 const LANE_LABELS = { code: 'Code', system: 'System Design', behavioral: 'Behavioral' }
 const LANE_STYLES = {
-  code: 'bg-indigo-50 border-indigo-200 text-indigo-800',
-  system: 'bg-cyan-50 border-cyan-200 text-cyan-800',
-  behavioral: 'bg-violet-50 border-violet-200 text-violet-800',
+  code: 'bg-indigo-50 border-indigo-200',
+  system: 'bg-cyan-50 border-cyan-200',
+  behavioral: 'bg-violet-50 border-violet-200',
 }
 
 const CONFIDENCE_OPTIONS = [
@@ -15,6 +15,15 @@ const CONFIDENCE_OPTIONS = [
 
 const CONFIDENCE_LABELS = { easy: 'Easy', ok: 'OK', hard: 'Hard' }
 
+function shuffleIndices(length) {
+  const out = Array.from({ length }, (_, i) => i)
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
 /**
  * Reusable Question Player card.
  * - mode="play": interactive MCQ + after-submit explanation + confidence rating + time tracking.
@@ -24,6 +33,7 @@ export default function QuestionPlayerCard({
   mode = 'play',
   question,
   attempt,
+  sessionKey = 0,
   onSubmitAttempt,
   onNext,
   nextLabel,
@@ -41,6 +51,10 @@ export default function QuestionPlayerCard({
 
   const answerIndex = typeof question?.answer_index === 'number' ? question.answer_index : null
   const isValidAnswerIndex = answerIndex !== null
+  const playChoiceOrder = useMemo(() => {
+    if (isReview) return []
+    return shuffleIndices(choices.length)
+  }, [choices.length, isReview, question?.id, sessionKey])
 
   const startTsRef = useRef(null)
 
@@ -140,7 +154,7 @@ export default function QuestionPlayerCard({
           {choices.map((opt, i) => (
             <li key={i}>
               <div
-                className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                className={`w-full rounded-lg border px-3 py-2 text-sm text-indigo-950 ${
                   selIdxReview === i && correctReview
                     ? 'border-green-500 bg-green-50'
                     : selIdxReview === i
@@ -150,10 +164,14 @@ export default function QuestionPlayerCard({
                         : 'border-[#E2E8F0] bg-white'
                 }`}
               >
-                {String(opt)}
-                {selIdxReview === i && correctReview && ' ✓ Your answer'}
-                {selIdxReview === i && !correctReview && ' ✗ Your answer'}
-                {i === answerIndex && selIdxReview !== i && ' — Correct'}
+                <div className="flex items-center justify-between gap-3">
+                  <span>{String(opt)}</span>
+                  <span className="shrink-0 text-right text-indigo-700">
+                    {selIdxReview === i && correctReview && 'Your answer ✓'}
+                    {selIdxReview === i && !correctReview && 'Your answer ✗'}
+                    {i === answerIndex && selIdxReview !== i && 'Correct'}
+                  </span>
+                </div>
               </div>
             </li>
           ))}
@@ -182,25 +200,25 @@ export default function QuestionPlayerCard({
       )}
 
       <ul className="mt-3 space-y-2">
-        {choices.map((opt, i) => (
-          <li key={i}>
+        {playChoiceOrder.map((choiceIndex) => (
+          <li key={choiceIndex}>
             <button
               type="button"
-              onClick={() => !submitted && setSelectedIndex(i)}
+              onClick={() => !submitted && setSelectedIndex(choiceIndex)}
               disabled={submitted}
               className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:cursor-default ${
-                selectedIndex === i
+                selectedIndex === choiceIndex
                   ? 'border-indigo-600 bg-indigo-100 text-indigo-950'
-                  : submitted && i === answerIndex
+                  : submitted && choiceIndex === answerIndex
                     ? 'border-green-500 bg-green-50 text-[#0F172A]'
-                    : submitted && i === selectedIndex && !isCorrectNow
+                    : submitted && choiceIndex === selectedIndex && !isCorrectNow
                       ? 'border-red-400 bg-red-50 text-[#0F172A]'
                       : 'border-indigo-200 bg-white text-indigo-950 hover:border-indigo-300 hover:bg-indigo-50/50'
               }`}
             >
-              {String(opt)}
-              {submitted && i === answerIndex && ' ✓'}
-              {submitted && i === selectedIndex && !isCorrectNow && i !== answerIndex && ' ✗'}
+              {String(choices[choiceIndex])}
+              {submitted && choiceIndex === answerIndex && ' ✓'}
+              {submitted && choiceIndex === selectedIndex && !isCorrectNow && choiceIndex !== answerIndex && ' ✗'}
             </button>
           </li>
         ))}

@@ -31,7 +31,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-[var(--mastery-bg)] flex flex-col">
       <div className="bg-gradient-to-br from-[#4F46E5] to-indigo-600 flex-1 flex flex-col justify-center">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-14 sm:py-16">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-16">
           <div className="flex flex-col items-center text-center">
             <img
               src="/main-logo.png"
@@ -63,7 +63,7 @@ export default function Landing() {
       </div>
 
       <div className="border-t border-[var(--mastery-border)] bg-white py-6">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-[var(--mastery-text)] text-sm">
             Three cards per day—code, system design, behavioral. About 5–8 minutes. Build the habit.
           </p>
@@ -71,7 +71,7 @@ export default function Landing() {
       </div>
 
       <footer className="bg-[#0F172A] text-slate-400 py-5">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center text-xs">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center text-xs">
           <p>© 2026 Mastery</p>
           <p className="mt-1">Md Uddin, Josh Marquez, Mahfuz Zaman, Shadman Uddin, Wilbert Carvajal</p>
         </div>
@@ -79,3 +79,4 @@ export default function Landing() {
     </div>
   )
 }
+

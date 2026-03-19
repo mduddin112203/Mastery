@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import {
   loadTodayPack,
@@ -7,19 +7,7 @@ import {
   getPreviousPacks,
   loadPackForReview,
 } from '../services/packService'
-
-const LANE_LABELS = { code: 'Code', system: 'System Design', behavioral: 'Behavioral' }
-const LANE_STYLES = {
-  code: 'bg-indigo-50 border-indigo-200 text-indigo-800',
-  system: 'bg-cyan-50 border-cyan-200 text-cyan-800',
-  behavioral: 'bg-violet-50 border-violet-200 text-violet-800',
-}
-const CONFIDENCE_OPTIONS = [
-  { value: 'easy', label: 'Easy' },
-  { value: 'ok', label: 'OK' },
-  { value: 'hard', label: 'Hard' },
-]
-const CONFIDENCE_LABELS = { easy: 'Easy', ok: 'OK', hard: 'Hard' }
+import QuestionPlayerCard from '../components/QuestionPlayerCard'
 
 function formatDate(d) {
   if (!d) return ''
@@ -40,13 +28,7 @@ export default function Home() {
   const [reviewIndex, setReviewIndex] = useState(0)
 
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [selectedIndex, setSelectedIndex] = useState(null)
-  const [submitted, setSubmitted] = useState(false)
-  const [confidence, setConfidence] = useState(null)
-  const [submitError, setSubmitError] = useState(null)
-  const [saving, setSaving] = useState(false)
   const [packComplete, setPackComplete] = useState(false)
-  const questionStartRef = useRef(null)
 
   const fetchPack = useCallback(async () => {
     setLoading(true)
@@ -54,9 +36,6 @@ export default function Home() {
     setPackComplete(false)
     setViewMode('today')
     setCurrentIndex(0)
-    setSelectedIndex(null)
-    setSubmitted(false)
-    setConfidence(null)
     setReviewIndex(0)
     try {
       const result = await loadTodayPack()
@@ -70,7 +49,6 @@ export default function Home() {
       setItems([])
     }
     setLoading(false)
-    questionStartRef.current = Date.now()
   }, [])
 
   const fetchPreviousPacks = useCallback(async () => {
@@ -113,42 +91,6 @@ export default function Home() {
 
   const item = items[isReadOnly ? reviewIndex : currentIndex]
   const q = item?.question
-  const choices = Array.isArray(q?.choices) ? q.choices : []
-  const isCorrect = q && selectedIndex !== null && selectedIndex === q.answer_index
-  const showConfidence = submitted && confidence === null && !saving && !submitError
-  const showNext = submitted && confidence !== null
-
-  const handleSubmit = () => {
-    if (selectedIndex === null) return
-    setSubmitted(true)
-  }
-
-  const handleConfidence = async (value) => {
-    if (!item?.question?.id || !packId || saving) return
-    setSaving(true)
-    setSubmitError(null)
-    const timeSpent = questionStartRef.current ? Math.round((Date.now() - questionStartRef.current) / 1000) : null
-    const { error: err } = await submitAttempt({
-      packId,
-      questionId: item.question.id,
-      selectedIndex,
-      isCorrect,
-      confidence: value,
-      timeSpentSec: timeSpent,
-    })
-    if (err) {
-      setSubmitError(err)
-      setSaving(false)
-      return
-    }
-    setConfidence(value)
-    setSaving(false)
-    if (currentIndex >= items.length - 1) {
-      await completePack(packId)
-      setPackComplete(true)
-      fetchPack()
-    }
-  }
 
   const handleNext = () => {
     if (currentIndex >= items.length - 1) {
@@ -157,11 +99,28 @@ export default function Home() {
       return
     }
     setCurrentIndex((i) => i + 1)
-    setSelectedIndex(null)
-    setSubmitted(false)
-    setConfidence(null)
-    setSubmitError(null)
-    questionStartRef.current = Date.now()
+  }
+
+  const handleSubmitAttempt = async ({ selectedIndex, isCorrect, confidence, timeSpentSec }) => {
+    if (!q?.id || !packId) return { error: 'Missing pack/question' }
+    const { error: err } = await submitAttempt({
+      packId,
+      questionId: q.id,
+      selectedIndex,
+      isCorrect,
+      confidence,
+      timeSpentSec,
+    })
+    if (err) return { error: err }
+
+    // If this was the last question, mark the whole pack complete immediately.
+    if (currentIndex >= items.length - 1) {
+      await completePack(packId)
+      setPackComplete(true)
+      await fetchPack()
+    }
+
+    return { error: null }
   }
 
   if (!user) {
@@ -271,50 +230,13 @@ export default function Home() {
               const revItem = items[reviewIndex]
               const revQ = revItem?.question
               const revAttempt = revItem?.attempt
-              const revChoices = Array.isArray(revQ?.choices) ? revQ.choices : []
-              const selIdx = revAttempt?.selected_index ?? -1
-              const correct = revAttempt?.is_correct ?? false
               return (
-                <article className={`rounded-xl border-2 border-indigo-200 bg-indigo-50/70 p-4 ${LANE_STYLES[revItem.lane] || LANE_STYLES.code}`}>
-                  <span className="text-xs font-medium uppercase tracking-wide text-indigo-700/90">
-                    {LANE_LABELS[revItem.lane]}
-                  </span>
-                  <h3 className="mt-1 font-semibold text-[#0F172A]">{revQ?.prompt}</h3>
-                  {revQ?.snippet && (
-                    <pre className="mt-2 overflow-x-auto rounded bg-black/5 p-3 text-sm font-mono text-[#0F172A]">
-                      {revQ.snippet}
-                    </pre>
-                  )}
-                  <ul className="mt-3 space-y-2">
-                    {revChoices.map((opt, i) => (
-                      <li
-                        key={i}
-                        className={`w-full rounded-lg border px-3 py-2 text-sm ${
-                          selIdx === i && correct
-                            ? 'border-green-500 bg-green-50'
-                            : selIdx === i
-                              ? 'border-red-400 bg-red-50'
-                              : i === revQ?.answer_index
-                                ? 'border-green-300 bg-green-50/50'
-                                : 'border-[#E2E8F0] bg-white'
-                        }`}
-                      >
-                        {String(opt)}
-                        {selIdx === i && correct && ' ✓ Your answer'}
-                        {selIdx === i && !correct && ' ✗ Your answer'}
-                        {i === revQ?.answer_index && selIdx !== i && ' — Correct'}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-4 rounded-lg border border-indigo-200 bg-white p-3 text-sm text-indigo-950">
-                    <p className="font-medium">{correct ? 'Correct.' : 'Not quite.'}</p>
-                    <p className="mt-1">{revQ?.explanation}</p>
-                    {revAttempt?.confidence && (
-                      <p className="mt-2 text-indigo-600">
-                        You marked this: {CONFIDENCE_LABELS[revAttempt.confidence] || revAttempt.confidence}
-                      </p>
-                    )}
-                  </div>
+                <div>
+                  <QuestionPlayerCard
+                    mode="review"
+                    question={{ ...revQ, lane: revItem.lane }}
+                    attempt={revAttempt}
+                  />
                   <div className="mt-4 flex gap-2">
                     <button
                       type="button"
@@ -333,7 +255,7 @@ export default function Home() {
                       Next
                     </button>
                   </div>
-                </article>
+                </div>
               )
             })()}
           </div>
@@ -357,103 +279,14 @@ export default function Home() {
             <p className="text-sm text-indigo-700/80">
               Question {currentIndex + 1} of {items.length}
             </p>
-            <article
-              className={`rounded-xl border-2 border-indigo-200 bg-indigo-50/70 p-4 ${LANE_STYLES[item.lane] || LANE_STYLES.code}`}
-              data-lane={item.lane}
-            >
-              <span className="text-xs font-medium uppercase tracking-wide text-indigo-700/90">
-                {LANE_LABELS[item.lane]}
-              </span>
-              <h3 className="mt-1 font-semibold text-[#0F172A]">{q.prompt}</h3>
-              {q.snippet && (
-                <pre className="mt-2 overflow-x-auto rounded bg-black/5 p-3 text-sm font-mono text-[#0F172A]">
-                  {q.snippet}
-                </pre>
-              )}
-              <ul className="mt-3 space-y-2">
-                {choices.map((opt, i) => (
-                  <li key={i}>
-                    <button
-                      type="button"
-                      onClick={() => !submitted && setSelectedIndex(i)}
-                      disabled={submitted}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:cursor-default ${
-                        selectedIndex === i
-                          ? 'border-indigo-600 bg-indigo-100 text-indigo-950'
-                          : submitted && i === q.answer_index
-                            ? 'border-green-500 bg-green-50 text-[#0F172A]'
-                            : submitted && i === selectedIndex && !isCorrect
-                              ? 'border-red-400 bg-red-50 text-[#0F172A]'
-                              : 'border-indigo-200 bg-white text-indigo-950 hover:border-indigo-300 hover:bg-indigo-50/50'
-                      }`}
-                    >
-                      {String(opt)}
-                      {submitted && i === q.answer_index && ' ✓'}
-                      {submitted && i === selectedIndex && !isCorrect && i !== q.answer_index && ' ✗'}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
-              {!submitted && (
-                <div className="mt-4 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={selectedIndex === null}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Submit
-                  </button>
-                  {selectedIndex === null && (
-                    <span className="text-sm text-indigo-600/80">Select an answer above</span>
-                  )}
-                </div>
-              )}
-
-              {submitted && (
-                <>
-                  <div className="mt-4 rounded-lg border border-[#E2E8F0] bg-white p-3 text-sm text-[#0F172A]">
-                    <p className="font-medium">{isCorrect ? 'Correct.' : 'Not quite.'}</p>
-                    <p className="mt-1">{q.explanation}</p>
-                  </div>
-
-                  {showConfidence && (
-                    <div className="mt-4">
-                      <p className="text-sm font-medium text-[#0F172A]">How did this feel?</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {CONFIDENCE_OPTIONS.map((o) => (
-                          <button
-                            key={o.value}
-                            type="button"
-                            onClick={() => handleConfidence(o.value)}
-                            disabled={saving}
-                            className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-sm font-medium text-[#0F172A] hover:bg-slate-50 disabled:opacity-50"
-                          >
-                            {o.label}
-                          </button>
-                        ))}
-                      </div>
-                      {submitError && (
-                        <p className="mt-2 text-sm text-red-600">{submitError}</p>
-                      )}
-                    </div>
-                  )}
-
-                  {showNext && (
-                    <div className="mt-4">
-                      <button
-                        type="button"
-                        onClick={handleNext}
-                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
-                      >
-                        {currentIndex >= items.length - 1 ? 'Done' : 'Next question'}
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </article>
+            <QuestionPlayerCard
+              key={q?.id}
+              mode="play"
+              question={{ ...q, lane: item.lane }}
+              onSubmitAttempt={handleSubmitAttempt}
+              onNext={handleNext}
+              nextLabel={currentIndex >= items.length - 1 ? 'Done' : 'Next question'}
+            />
           </div>
         )}
       </div>

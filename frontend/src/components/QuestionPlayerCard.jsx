@@ -49,6 +49,7 @@ export default function QuestionPlayerCard({
   const [confidence, setConfidence] = useState(isReview ? attempt?.confidence ?? null : null)
   const [saving, setSaving] = useState(false)
   const [submitError, setSubmitError] = useState(null)
+  const [hasSavedAttempt, setHasSavedAttempt] = useState(isReview)
 
   const isCorrectNow = isReview ? !!attempt?.is_correct : selectedIndex !== null && isValidAnswerIndex && selectedIndex === answerIndex
 
@@ -63,6 +64,7 @@ export default function QuestionPlayerCard({
     setConfidence(null)
     setSaving(false)
     setSubmitError(null)
+    setHasSavedAttempt(false)
   }, [question?.id, isReview])
 
   const handleSubmit = () => {
@@ -70,7 +72,7 @@ export default function QuestionPlayerCard({
     setSubmitted(true)
   }
 
-  const handleConfidence = async (value) => {
+  const saveAttempt = async (valueOrNull) => {
     if (!onSubmitAttempt || saving) return
     if (!question?.id || answerIndex === null) return
     if (selectedIndex === null) return
@@ -84,28 +86,46 @@ export default function QuestionPlayerCard({
       const res = await onSubmitAttempt({
         selectedIndex,
         isCorrect: selectedIndex === answerIndex,
-        confidence: value,
+        confidence: valueOrNull ?? null,
         timeSpentSec,
       })
 
       if (res?.error) {
         setSubmitError(res.error)
         setSaving(false)
-        return
+        return false
       }
 
-      setConfidence(value)
+      setConfidence(valueOrNull ?? null)
+      setHasSavedAttempt(true)
       setSaving(false)
+      return true
     } catch (e) {
       setSubmitError(e?.message || 'Failed to submit')
       setSaving(false)
+      return false
     }
   }
 
   const selIdxReview = attempt?.selected_index ?? -1
   const correctReview = attempt?.is_correct ?? false
   const showConfidence = !isReview && submitted && confidence === null && !saving && !submitError
-  const showNext = !isReview && submitted && confidence !== null
+  const showNext = !isReview && submitted && !saving
+
+  const handleConfidence = async (value) => {
+    await saveAttempt(value)
+  }
+
+  const handleNext = async () => {
+    if (!onNext) return
+    // If user didn't pick confidence, still record the attempt with confidence=null.
+    if (!hasSavedAttempt) {
+      const ok = await saveAttempt(null)
+      // If save failed, keep them here.
+      if (!ok) return
+    }
+    onNext()
+  }
 
   if (isReview) {
     return (
@@ -231,7 +251,7 @@ export default function QuestionPlayerCard({
             <div className="mt-4">
               <button
                 type="button"
-                onClick={onNext}
+                onClick={handleNext}
                 className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
               >
                 {nextLabel || 'Next'}

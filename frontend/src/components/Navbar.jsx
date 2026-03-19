@@ -65,9 +65,6 @@ export default function Navbar() {
           <Link to="/practice" className={linkClass}>
             Practice
           </Link>
-          <Link to="/behavioral" className={linkClass}>
-            Behavioral
-          </Link>
           <Link to="/progress" className={linkClass}>
             Progress
           </Link>

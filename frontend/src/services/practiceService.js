@@ -1,11 +1,12 @@
 import { supabase } from './supabase'
 
-function uniq(arr) {
-  return Array.from(new Set(arr))
-}
-
 function shuffle(arr) {
-  return [...arr].sort(() => Math.random() - 0.5)
+  const out = [...arr]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
 }
 
 export async function getUserSettings() {
@@ -30,6 +31,43 @@ export async function getUserSettings() {
   }
 }
 
+async function fetchQuestionsWithFallback({ lane, level, track, language, limit = 50 }) {
+  const base = supabase
+    .from('questions')
+    .select('id, lane, prompt, snippet, choices, answer_index, explanation, topic, difficulty, level, track, language')
+    .eq('is_active', true)
+    .eq('lane', lane)
+
+  // For each lane, try more specific filters first, then relax.
+  const attempts = []
+
+  if (lane === 'code') {
+    // 1) level + track + language
+    attempts.push(base.eq('level', level).eq('track', track).eq('language', language))
+    // 2) level + language (any track)
+    attempts.push(base.eq('level', level).eq('language', language))
+    // 3) level (any track/any language)
+    attempts.push(base.eq('level', level))
+  } else {
+    // system/behavioral use language=null in our schema
+    const withLang = base.is('language', null)
+    // 1) level + track
+    attempts.push(withLang.eq('level', level).eq('track', track))
+    // 2) level (any track)
+    attempts.push(withLang.eq('level', level))
+    // 3) any level (any track) — keep language null
+    attempts.push(withLang)
+  }
+
+  for (const q of attempts) {
+    const { data, error } = await q.limit(limit)
+    if (error) return { questions: [], error: error.message }
+    if ((data || []).length > 0) return { questions: data, error: null }
+  }
+
+  return { questions: [], error: null }
+}
+
 export async function getRandomPracticeQuestions({ lane = 'all', limit = 5 } = {}) {
   const { settings, error: settingsError } = await getUserSettings()
   if (settingsError) return { questions: [], error: settingsError }
@@ -41,29 +79,27 @@ export async function getRandomPracticeQuestions({ lane = 'all', limit = 5 } = {
   const lanes = lane === 'all' ? ['code', 'system', 'behavioral'] : [lane]
   const perLane = Math.max(1, Math.ceil(limit / lanes.length))
 
-  const queries = lanes.map((l) => {
-    let q = supabase
-      .from('questions')
-      .select('id, lane, prompt, snippet, choices, answer_index, explanation, topic, difficulty')
-      .eq('is_active', true)
-      .eq('lane', l)
-      .eq('level', level)
-      .eq('track', track)
-
-    if (l === 'code') q = q.eq('language', language)
-    else q = q.is('language', null)
-
-    return q.limit(50)
-  })
-
-  const results = await Promise.all(queries)
-  const all = results.flatMap((r) => r.data || [])
+  const results = await Promise.all(
+    lanes.map((l) => fetchQuestionsWithFallback({ lane: l, level, track, language, limit: 100 })),
+  )
+  const all = results.flatMap((r) => r.questions || [])
 
   if (all.length === 0) {
     return { questions: [], error: 'No questions available for your settings.' }
   }
 
-  const picked = shuffle(all).slice(0, limit)
+  // Keep some balance across lanes when lane=all by picking per-lane first.
+  let picked = []
+  if (lane === 'all') {
+    for (const l of lanes) {
+      const group = all.filter((q) => q.lane === l)
+      picked = picked.concat(shuffle(group).slice(0, perLane))
+    }
+  } else {
+    picked = all
+  }
+
+  picked = shuffle(picked).slice(0, limit)
   return { questions: picked, error: null }
 }
 
@@ -96,10 +132,6 @@ export async function getMissedQuestions({ lane = 'all', limit = 10 } = {}) {
     .order('created_at', { ascending: false })
     .limit(200)
 
-  if (lane !== 'all') {
-    q = q.eq('questions.lane', lane)
-  }
-
   const { data, error } = await q
   if (error) return { questions: [], error: error.message }
 
@@ -108,6 +140,7 @@ export async function getMissedQuestions({ lane = 'all', limit = 10 } = {}) {
   for (const row of data || []) {
     const question = row.questions
     if (!question?.id) continue
+    if (lane !== 'all' && question.lane !== lane) continue
     if (seen.has(question.id)) continue
     seen.add(question.id)
     missed.push(question)
@@ -151,10 +184,6 @@ export async function getWeakTopicQuestions({ lane = 'all', limit = 10 } = {}) {
     .order('created_at', { ascending: false })
     .limit(800)
 
-  if (lane !== 'all') {
-    q = q.eq('questions.lane', lane)
-  }
-
   const { data, error } = await q
   if (error) return { questions: [], error: error.message }
 
@@ -164,6 +193,7 @@ export async function getWeakTopicQuestions({ lane = 'all', limit = 10 } = {}) {
 
   for (const row of data || []) {
     const question = row.questions
+    if (lane !== 'all' && question?.lane !== lane) continue
     if (!question?.topic) continue
     const key = `${question.lane}::${question.topic}`
     const agg = byTopic.get(key) || { lane: question.lane, topic: question.topic, total: 0, correct: 0 }
@@ -187,6 +217,7 @@ export async function getWeakTopicQuestions({ lane = 'all', limit = 10 } = {}) {
   const seenQuestions = new Set()
   for (const row of data || []) {
     const question = row.questions
+    if (lane !== 'all' && question?.lane !== lane) continue
     if (!question?.id || !question?.topic) continue
     if (seenQuestions.has(question.id)) continue
     seenQuestions.add(question.id)

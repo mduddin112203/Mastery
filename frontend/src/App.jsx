@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import BaseLayout from './components/BaseLayout'
@@ -9,7 +9,6 @@ import Signup from './pages/Signup'
 import Home from './pages/Home'
 import Onboarding from './pages/Onboarding'
 import Practice from './pages/Practice'
-import Behavioral from './pages/Behavioral'
 import Progress from './pages/Progress'
 import Profile from './pages/Profile'
 import Admin from './pages/Admin'
@@ -26,7 +25,7 @@ function AppRoutes() {
         <Route path="home" element={<Home />} />
         <Route path="onboarding" element={<Onboarding />} />
         <Route path="practice" element={<Practice />} />
-        <Route path="behavioral" element={<Behavioral />} />
+        <Route path="behavioral" element={<Navigate to="/practice" replace />} />
         <Route path="progress" element={<Progress />} />
         <Route path="profile" element={<Profile />} />
         <Route path="admin" element={<Admin />} />

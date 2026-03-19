@@ -6,6 +6,14 @@ function pct(x) {
   return `${Math.round(x * 100)}%`
 }
 
+function formatLabel(value) {
+  if (!value) return ''
+  return String(value)
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 export default function Progress() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -29,10 +37,10 @@ export default function Progress() {
 
   return (
     <div className="min-h-screen bg-indigo-50/50 text-indigo-950">
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-indigo-950">Progress</h1>
-          <p className="mt-1 text-sm text-indigo-700/80">Streak, weekly activity, and accuracy.</p>
+          <p className="mt-1 text-sm text-indigo-700/80">Check streak, weekly activity, and accuracy.</p>
         </div>
 
         {loading && (
@@ -84,7 +92,7 @@ export default function Progress() {
                     {(summary.laneAccuracy || []).map((x) => (
                       <li key={x.lane}>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-indigo-950">{x.lane}</span>
+                          <span className="font-medium text-indigo-950">{formatLabel(x.lane)}</span>
                           <span className="text-indigo-700/80">
                             {pct(x.accuracy)} <span className="text-indigo-300">•</span> {x.correct}/{x.total}
                           </span>
@@ -111,8 +119,8 @@ export default function Progress() {
                       <li key={`${x.lane}::${x.topic}`}>
                         <div className="flex items-center justify-between text-sm">
                           <span className="font-medium text-indigo-950">
-                            {x.topic} <span className="text-indigo-300">•</span>{' '}
-                            <span className="text-indigo-700/80">{x.lane}</span>
+                            {formatLabel(x.topic)} <span className="text-indigo-300">•</span>{' '}
+                            <span className="text-indigo-700/80">{formatLabel(x.lane)}</span>
                           </span>
                           <span className="text-indigo-700/80">
                             {pct(x.accuracy)} <span className="text-indigo-300">•</span> {x.correct}/{x.total}
@@ -136,3 +144,4 @@ export default function Progress() {
     </div>
   )
 }
+

@@ -100,7 +100,7 @@ export default function Onboarding() {
   if (!user) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
-        <div className="max-w-2xl mx-auto px-4 py-12">
+        <div className="max-w-5xl mx-auto px-4 py-12">
           <p className="text-slate-600">Sign in to set your preferences.</p>
         </div>
       </div>
@@ -110,7 +110,7 @@ export default function Onboarding() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
-        <div className="max-w-2xl mx-auto px-4 py-12">
+        <div className="max-w-5xl mx-auto px-4 py-12">
           <p className="text-slate-600">Loading your settings…</p>
         </div>
       </div>
@@ -119,7 +119,7 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
-      <div className="max-w-2xl mx-auto px-4 py-12">
+      <div className="max-w-5xl mx-auto px-4 py-12">
         <h1 className="text-xl font-semibold text-[#0F172A]">
           {isFirstTime ? 'Create your profile' : 'Preferences'}
         </h1>
@@ -214,3 +214,5 @@ export default function Onboarding() {
     </div>
   )
 }
+
+

@@ -126,7 +126,7 @@ export default function Home() {
   if (!user) {
     return (
       <div className="min-h-screen bg-indigo-50/50 text-indigo-950">
-        <div className="max-w-2xl mx-auto px-4 py-12">
+        <div className="max-w-5xl mx-auto px-4 py-12">
           <p className="text-indigo-700">Sign in to see your daily pack.</p>
         </div>
       </div>
@@ -135,8 +135,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-indigo-50/50 text-indigo-950">
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-indigo-950">
               {viewMode === 'past' ? `Pack — ${formatDate(packDate)}` : "Today's Pack"}
@@ -222,7 +222,7 @@ export default function Home() {
         )}
 
         {!loading && !error && items.length > 0 && isReadOnly && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <p className="text-sm text-indigo-700/80">
               Question {reviewIndex + 1} of {items.length}
             </p>
@@ -275,7 +275,7 @@ export default function Home() {
         )}
 
         {!loading && !error && items.length > 0 && !packComplete && !isReadOnly && item && q && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <p className="text-sm text-indigo-700/80">
               Question {currentIndex + 1} of {items.length}
             </p>
@@ -293,3 +293,5 @@ export default function Home() {
     </div>
   )
 }
+
+

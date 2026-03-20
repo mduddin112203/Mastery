@@ -103,9 +103,9 @@ export async function getPackWithQuestions(packId) {
  * @returns { packId, items, completedAt, packDate, error? }
  */
 export async function loadTodayPack() {
-  const { packId, error: packError } = await getOrCreateTodayPack()
+  const { packId, source, error: packError } = await getOrCreateTodayPack()
   if (packError || !packId) {
-    return { packId: null, items: [], completedAt: false, packDate: null, error: packError || 'No pack' }
+    return { packId: null, items: [], completedAt: false, packDate: null, source: null, error: packError || 'No pack' }
   }
 
   const { data: packRow } = await supabase
@@ -119,7 +119,7 @@ export async function loadTodayPack() {
 
   const { items, error: itemsError } = await getPackWithQuestions(packId)
   if (itemsError) {
-    return { packId, items: [], completedAt: false, packDate, error: itemsError }
+    return { packId, items: [], completedAt: false, packDate, source, error: itemsError }
   }
 
   if (completedAt && items.length > 0) {
@@ -135,10 +135,10 @@ export async function loadTodayPack() {
       ...it,
       attempt: it.question?.id ? byQuestion[it.question.id] ?? null : null,
     }))
-    return { packId, items: itemsWithAttempts, completedAt: true, packDate, error: null }
+    return { packId, items: itemsWithAttempts, completedAt: true, packDate, source, error: null }
   }
 
-  return { packId, items, completedAt: false, packDate, error: null }
+  return { packId, items, completedAt: false, packDate, source, error: null }
 }
 
 /**

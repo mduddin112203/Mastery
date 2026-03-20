@@ -56,6 +56,7 @@ export default function Home() {
   const { user } = useAuth()
   const [packId, setPackId] = useState(null)
   const [packDate, setPackDate] = useState(null)
+  const [packSource, setPackSource] = useState(null)
   const [items, setItems] = useState([])
   const [completedAt, setCompletedAt] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -74,12 +75,14 @@ export default function Home() {
     setViewMode('today')
     setCurrentIndex(0)
     setReviewIndex(0)
+    setPackSource(null)
     try {
       const result = await loadTodayPack()
       setPackId(result.packId)
       setPackDate(result.packDate)
       setItems(result.items || [])
       setCompletedAt(!!result.completedAt)
+      setPackSource(result.source || null)
       setError(result.error || null)
     } catch (e) {
       setError(e?.message || 'Failed to load pack')
@@ -113,6 +116,7 @@ export default function Home() {
     setLoading(true)
     setError(null)
     setViewMode('past')
+    setPackSource(null)
     const { pack, items: revItems, error: err } = await loadPackForReview(id)
     if (err) {
       setError(err)
@@ -190,6 +194,11 @@ export default function Home() {
             <p className="mt-1 text-sm text-indigo-700/80">
               {formatDate(packDate) || (isToday ? 'Today' : today)}
             </p>
+            {viewMode === 'today' && packSource && (
+              <p className="mt-0.5 text-xs text-indigo-700/70">
+                Pack source: {packSource === 'ai' ? 'AI' : packSource === 'seed' ? 'Seed' : 'Existing'}
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {viewMode === 'past' && (

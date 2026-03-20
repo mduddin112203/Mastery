@@ -17,8 +17,9 @@ const CONFIDENCE_LABELS = { easy: 'Easy', ok: 'OK', hard: 'Hard' }
 
 function renderChoiceText(opt) {
   if (typeof opt !== 'string') return String(opt)
-  // Preserve and reveal whitespace-sensitive options (e.g. "  hi  ".strip()).
-  return JSON.stringify(opt)
+  // Render raw option text (no extra JSON quotes).
+  // Your choices are already stored as strings like "Nothing".
+  return opt
 }
 
 function shuffleIndices(length) {

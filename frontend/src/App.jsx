@@ -7,6 +7,8 @@ import AdminGate from './components/AdminGate'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import ForgotPassword from './pages/ForgotPassword'
+import UpdatePassword from './pages/UpdatePassword'
 import Home from './pages/Home'
 import Onboarding from './pages/Onboarding'
 import Practice from './pages/Practice'
@@ -21,6 +23,8 @@ function AppRoutes() {
         <Route index element={<Landing />} />
         <Route path="login" element={<Login />} />
         <Route path="signup" element={<Signup />} />
+        <Route path="forgot-password" element={<ForgotPassword />} />
+        <Route path="update-password" element={<UpdatePassword />} />
       </Route>
       <Route element={<ProtectedLayout />}>
         <Route path="home" element={<Home />} />

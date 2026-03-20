@@ -87,6 +87,14 @@ export default function Login() {
               {submitting ? 'Logging in…' : 'Log in'}
             </button>
           </form>
+          <p className="mt-4 text-center text-sm text-slate-500">
+            <Link
+              to="/forgot-password"
+              className="text-[var(--mastery-primary)] font-medium hover:underline"
+            >
+              Forgot your password?
+            </Link>
+          </p>
           <p className="mt-5 text-center text-sm text-slate-500">
             No account? <Link to="/signup" className="text-[var(--mastery-primary)] font-medium hover:underline">Sign up</Link>
           </p>

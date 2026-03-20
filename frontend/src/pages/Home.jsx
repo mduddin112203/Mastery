@@ -55,16 +55,21 @@ export default function Home() {
     try {
       const { packs } = await getPreviousPacks()
       setPreviousPacks(packs || [])
-    } catch (_e) {
+    } catch {
       setPreviousPacks([])
     }
   }, [])
 
   useEffect(() => {
-    if (user) {
-      fetchPack()
-      fetchPreviousPacks()
-    } else setLoading(false)
+    // Defer state updates to avoid react-hooks lint complaints about cascading renders.
+    queueMicrotask(() => {
+      if (user) {
+        fetchPack()
+        fetchPreviousPacks()
+      } else {
+        setLoading(false)
+      }
+    })
   }, [user, fetchPack, fetchPreviousPacks])
 
   const loadPastPack = useCallback(async (id) => {

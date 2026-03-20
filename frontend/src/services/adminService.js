@@ -23,7 +23,7 @@ function parseLooseChoices(raw) {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.replace(/^[-*]\s+/, '').replace(/^\d+[\).:-]?\s*/, '').trim())
+    .map((line) => line.replace(/^[-*]\s+/, '').replace(/^\d+[).:-]?\s*/, '').trim())
 }
 
 export async function listQuestions({

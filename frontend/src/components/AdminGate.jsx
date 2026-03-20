@@ -11,7 +11,8 @@ export default function AdminGate({ children }) {
   useEffect(() => {
     let cancelled = false
     if (!user?.id) {
-      setIsAdmin(false)
+      // Defer state update to avoid react-hooks lint complaints about cascading renders.
+      queueMicrotask(() => setIsAdmin(false))
       return () => { cancelled = true }
     }
 

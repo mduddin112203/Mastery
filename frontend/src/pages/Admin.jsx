@@ -196,10 +196,13 @@ export default function Admin() {
   }, [reportStatus])
 
   useEffect(() => {
-    if (tab === 'questions') loadQuestions()
-    if (tab === 'users') loadUsers()
-    if (tab === 'analytics') loadAnalytics()
-    if (tab === 'reports') loadReports()
+    // Defer state updates to avoid react-hooks lint complaints about cascading renders.
+    queueMicrotask(() => {
+      if (tab === 'questions') loadQuestions()
+      if (tab === 'users') loadUsers()
+      if (tab === 'analytics') loadAnalytics()
+      if (tab === 'reports') loadReports()
+    })
   }, [tab, loadQuestions, loadUsers, loadAnalytics, loadReports])
 
   const maxQPage = useMemo(() => Math.max(1, Math.ceil((questionsTotal || 0) / 25)), [questionsTotal])

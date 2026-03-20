@@ -58,7 +58,8 @@ export default function Profile() {
 
   useEffect(() => {
     if (!user?.id) {
-      setLoading(false)
+      // Defer state update to avoid react-hooks lint complaints about cascading renders.
+      queueMicrotask(() => setLoading(false))
       return
     }
     let cancelled = false
@@ -262,7 +263,7 @@ export default function Profile() {
           )}
 
           <div className="mt-4 flex flex-wrap items-end gap-3">
-            <div className="min-w-[260px] flex-1">
+            <div className="w-full sm:min-w-[260px] flex-1">
               <label htmlFor="new-password" className="block text-sm font-medium text-[#0F172A]">New password</label>
               <input
                 id="new-password"

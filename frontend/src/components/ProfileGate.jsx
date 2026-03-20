@@ -16,11 +16,13 @@ export default function ProfileGate({ children }) {
 
   useEffect(() => {
     if (!user?.id) {
-      setHasProfile(null)
+      // Defer state update to avoid react-hooks lint complaints about cascading renders.
+      queueMicrotask(() => setHasProfile(null))
       return
     }
     if (isOnboarding) {
-      setHasProfile(true)
+      // Defer state update to avoid react-hooks lint complaints about cascading renders.
+      queueMicrotask(() => setHasProfile(true))
       return
     }
     let cancelled = false

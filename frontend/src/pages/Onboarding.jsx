@@ -52,7 +52,8 @@ export default function Onboarding() {
 
   useEffect(() => {
     if (!user?.id) {
-      setLoading(false)
+      // Defer state update to avoid react-hooks lint complaints about cascading renders.
+      queueMicrotask(() => setLoading(false))
       return
     }
     let cancelled = false

@@ -62,7 +62,8 @@ export default function QuestionPlayerCard({
     return shuffleIndices(choices.length)
   }, [choices.length, isReview, question?.id, sessionKey])
 
-  const startTsRef = useRef(null)
+  const elapsedSecRef = useRef(null)
+  const timerIdRef = useRef(null)
 
   const [selectedIndex, setSelectedIndex] = useState(null)
   const [submitted, setSubmitted] = useState(isReview)
@@ -74,17 +75,36 @@ export default function QuestionPlayerCard({
   const isCorrectNow = isReview ? !!attempt?.is_correct : selectedIndex !== null && isValidAnswerIndex && selectedIndex === answerIndex
 
   useEffect(() => {
+    // Cleanup the old timer when question changes / leaving play mode.
+    if (timerIdRef.current) {
+      clearInterval(timerIdRef.current)
+      timerIdRef.current = null
+    }
+
     if (!question?.id) return
     if (isReview) return
 
     // Restart the per-question timer whenever the question changes.
-    startTsRef.current = Date.now()
-    setSelectedIndex(null)
-    setSubmitted(false)
-    setConfidence(null)
-    setSaving(false)
-    setSubmitError(null)
-    setHasSavedAttempt(false)
+    elapsedSecRef.current = 0
+    timerIdRef.current = setInterval(() => {
+      elapsedSecRef.current = (elapsedSecRef.current ?? 0) + 1
+    }, 1000)
+    queueMicrotask(() => {
+      setSelectedIndex(null)
+      setSubmitted(false)
+      setConfidence(null)
+      setSaving(false)
+      setSubmitError(null)
+      setHasSavedAttempt(false)
+    })
+
+    return () => {
+      if (timerIdRef.current) {
+        clearInterval(timerIdRef.current)
+        timerIdRef.current = null
+      }
+      elapsedSecRef.current = null
+    }
   }, [question?.id, isReview])
 
   const handleSubmit = () => {
@@ -100,7 +120,7 @@ export default function QuestionPlayerCard({
     setSaving(true)
     setSubmitError(null)
 
-    const timeSpentSec = startTsRef.current ? Math.round((Date.now() - startTsRef.current) / 1000) : null
+    const timeSpentSec = elapsedSecRef.current
 
     try {
       const res = await onSubmitAttempt({

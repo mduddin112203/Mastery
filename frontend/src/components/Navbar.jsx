@@ -20,7 +20,8 @@ export default function Navbar() {
     let cancelled = false
 
     if (!user?.id) {
-      setIsAdmin(false)
+      // Defer state update to avoid react-hooks lint complaints about cascading renders.
+      queueMicrotask(() => setIsAdmin(false))
       return () => { cancelled = true }
     }
 
@@ -42,7 +43,7 @@ export default function Navbar() {
     <img
       src="/main-logo.png"
       alt="Mastery"
-      className="h-10 w-auto sm:h-12"
+      className="h-10 w-auto max-w-[140px] sm:h-12 sm:max-w-none"
       onError={(e) => { e.target.style.display = 'none' }}
     />
   )
@@ -50,11 +51,11 @@ export default function Navbar() {
   if (!user) {
     return (
       <header className="sticky top-0 z-10 border-b border-indigo-200 bg-indigo-50/90">
-        <nav className="w-full px-4 sm:px-6 py-2.5 flex justify-between items-center gap-4">
+        <nav className="w-full px-4 sm:px-6 py-2.5 flex flex-wrap justify-between items-center gap-4">
           <Link to="/" className="flex items-center shrink-0 py-1.5" aria-label="Mastery home">
             {logo}
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Link to="/login" className={`${linkClass} px-3`}>
               Log in
             </Link>

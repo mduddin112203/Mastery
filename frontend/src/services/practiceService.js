@@ -39,31 +39,41 @@ async function fetchQuestionsWithFallback({
   limit = 50,
   targetCount = 1,
 }) {
-  const base = supabase
-    .from('questions')
-    .select('id, lane, prompt, snippet, choices, answer_index, explanation, topic, difficulty, level, track, language')
-    .eq('is_active', true)
-    .eq('lane', lane)
+  const makeBase = () =>
+    supabase
+      .from('questions')
+      .select(
+        'id, lane, prompt, snippet, choices, answer_index, explanation, topic, difficulty, level, track, language',
+      )
+      .eq('is_active', true)
+      .eq('lane', lane)
 
   // For each lane, try more specific filters first, then relax.
+  // IMPORTANT: create a fresh query per attempt; reusing query builders can cause filters to “stick”.
   const attempts = []
 
   if (lane === 'code') {
     // 1) level + track + language
-    attempts.push(base.eq('level', level).eq('track', track).eq('language', language))
+    attempts.push(makeBase().eq('level', level).eq('track', track).eq('language', language))
     // 2) level + language (any track)
-    attempts.push(base.eq('level', level).eq('language', language))
+    attempts.push(makeBase().eq('level', level).eq('language', language))
     // 3) level (any track/any language)
-    attempts.push(base.eq('level', level))
+    attempts.push(makeBase().eq('level', level))
   } else {
-    // system/behavioral use language=null in our schema
-    const withLang = base.is('language', null)
+    // Prefer language=null (matches schema for system/behavioral), but also allow any language if needed.
+    const withLangNull = () => makeBase().is('language', null)
+
     // 1) level + track
-    attempts.push(withLang.eq('level', level).eq('track', track))
+    attempts.push(withLangNull().eq('level', level).eq('track', track))
     // 2) level (any track)
-    attempts.push(withLang.eq('level', level))
-    // 3) any level (any track) — keep language null
-    attempts.push(withLang)
+    attempts.push(withLangNull().eq('level', level))
+    // 3) any level/track — keep language null
+    attempts.push(withLangNull())
+
+    // 4) fallback: any language (covers mismatched data)
+    attempts.push(makeBase().eq('level', level).eq('track', track))
+    attempts.push(makeBase().eq('level', level))
+    attempts.push(makeBase())
   }
 
   // Accumulate results across attempts until we reach targetCount or run out of attempts.
@@ -79,9 +89,7 @@ async function fetchQuestionsWithFallback({
       if (!id || seen.has(id)) continue
       seen.add(id)
       pool.push(row)
-      if (pool.length >= targetCount) {
-        break
-      }
+      if (pool.length >= targetCount) break
     }
 
     if (pool.length >= targetCount) break

@@ -60,6 +60,10 @@ export default function QuestionPlayerCard({
   const isValidAnswerIndex = answerIndex !== null
   const playChoiceOrder = useMemo(() => {
     if (isReview) return []
+    // Reference question/session so ESLint knows the deps are intentional.
+    // This ensures choices are re-shuffled per question/session.
+    void question?.id
+    void sessionKey
     return shuffleIndices(choices.length)
   }, [choices.length, isReview, question?.id, sessionKey])
 

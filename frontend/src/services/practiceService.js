@@ -31,7 +31,14 @@ export async function getUserSettings() {
   }
 }
 
-async function fetchQuestionsWithFallback({ lane, level, track, language, limit = 50 }) {
+async function fetchQuestionsWithFallback({
+  lane,
+  level,
+  track,
+  language,
+  limit = 50,
+  targetCount = 1,
+}) {
   const base = supabase
     .from('questions')
     .select('id, lane, prompt, snippet, choices, answer_index, explanation, topic, difficulty, level, track, language')
@@ -59,13 +66,28 @@ async function fetchQuestionsWithFallback({ lane, level, track, language, limit 
     attempts.push(withLang)
   }
 
+  // Accumulate results across attempts until we reach targetCount or run out of attempts.
+  const pool = []
+  const seen = new Set()
+
   for (const q of attempts) {
     const { data, error } = await q.limit(limit)
     if (error) return { questions: [], error: error.message }
-    if ((data || []).length > 0) return { questions: data, error: null }
+
+    for (const row of data || []) {
+      const id = row?.id
+      if (!id || seen.has(id)) continue
+      seen.add(id)
+      pool.push(row)
+      if (pool.length >= targetCount) {
+        break
+      }
+    }
+
+    if (pool.length >= targetCount) break
   }
 
-  return { questions: [], error: null }
+  return { questions: pool, error: null }
 }
 
 export async function getRandomPracticeQuestions({ lane = 'all', limit = 5 } = {}) {
@@ -80,7 +102,16 @@ export async function getRandomPracticeQuestions({ lane = 'all', limit = 5 } = {
   const perLane = Math.max(1, Math.ceil(limit / lanes.length))
 
   const results = await Promise.all(
-    lanes.map((l) => fetchQuestionsWithFallback({ lane: l, level, track, language, limit: 100 })),
+    lanes.map((l) =>
+      fetchQuestionsWithFallback({
+        lane: l,
+        level,
+        track,
+        language,
+        limit: 100,
+        targetCount: perLane,
+      }),
+    ),
   )
   const all = results.flatMap((r) => r.questions || [])
 

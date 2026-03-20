@@ -11,8 +11,45 @@ import QuestionPlayerCard from '../components/QuestionPlayerCard'
 
 function formatDate(d) {
   if (!d) return ''
-  const date = typeof d === 'string' ? new Date(d + 'Z') : new Date(d)
+
+  // Supabase `date` columns often come as `YYYY-MM-DD` strings.
+  // Some browsers parse those inconsistently; handle them explicitly.
+  if (typeof d === 'string') {
+    const trimmed = d.trim()
+    const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed)
+    if (ymd) {
+      const year = Number(ymd[1])
+      const month = Number(ymd[2])
+      const day = Number(ymd[3])
+      const date = new Date(year, month - 1, day)
+      if (Number.isNaN(date.getTime())) return ''
+      return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+    }
+
+    const date = new Date(trimmed)
+    if (Number.isNaN(date.getTime())) return ''
+    return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  // Date instance or other structured values.
+  const date = new Date(d)
+  if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function toISOYMD(d) {
+  if (!d) return null
+  if (typeof d === 'string') {
+    const trimmed = d.trim()
+    // Already in expected format.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
+    const maybe = new Date(trimmed)
+    if (Number.isNaN(maybe.getTime())) return null
+    return maybe.toISOString().slice(0, 10)
+  }
+  const date = new Date(d)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString().slice(0, 10)
 }
 
 export default function Home() {
@@ -92,7 +129,8 @@ export default function Home() {
 
   const isReadOnly = completedAt || viewMode === 'past'
   const today = new Date().toISOString().slice(0, 10)
-  const isToday = packDate === today
+  const packDateYMD = toISOYMD(packDate)
+  const isToday = packDateYMD === today
 
   const item = items[isReadOnly ? reviewIndex : currentIndex]
   const q = item?.question
@@ -147,7 +185,9 @@ export default function Home() {
               {viewMode === 'past' ? `Pack — ${formatDate(packDate)}` : "Today's Pack"}
               {isReadOnly && isToday && ' — Completed'}
             </h1>
-            <p className="mt-1 text-sm text-indigo-700/80">{formatDate(packDate) || today}</p>
+            <p className="mt-1 text-sm text-indigo-700/80">
+              {formatDate(packDate) || (isToday ? 'Today' : today)}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {viewMode === 'past' && (

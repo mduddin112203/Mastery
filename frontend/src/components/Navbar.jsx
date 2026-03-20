@@ -77,7 +77,7 @@ export default function Navbar() {
         <Link to="/home" className="flex items-center shrink-0 py-1.5" aria-label="Mastery home">
           {logo}
         </Link>
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
           <Link to="/home" className={linkClass}>
             Home
           </Link>
@@ -95,9 +95,9 @@ export default function Navbar() {
               Admin
             </Link>
           )}
-          <span className="hidden sm:inline text-indigo-300 text-sm mx-1">|</span>
+          <span className="hidden xs:inline sm:inline text-indigo-300 text-sm mx-1">|</span>
           <span
-            className="text-indigo-700/80 text-sm truncate max-w-[140px] sm:max-w-[200px]"
+            className="hidden xs:inline text-indigo-700/80 text-sm truncate max-w-[140px] sm:max-w-[200px] min-w-0"
             title={user.email}
           >
             {user.email}

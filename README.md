@@ -125,6 +125,16 @@ Streak counter, weekly activity chart, accuracy by lane/topic, weak topic detect
 ### Content Admin Panel
 Create/edit/disable questions, bulk import JSON packs, review flagged content.
 
+### Admin Access (Runbook)
+- Promote an existing account to admin in Supabase SQL editor:
+  - `update public.profiles p set role='admin' from auth.users u where p.id = u.id and u.email = 'masteryapp@yahoo.com';`
+- Admin URL: `/admin` (non-admin users are redirected to `/home`).
+- Admin modules:
+  - Questions: create/edit/deactivate + filters
+  - Users: settings and recent activity summary
+  - Analytics: hardest/easiest questions, lane/topic accuracy
+  - Reports: moderation queue with resolve + deactivate actions
+
 ---
 
 ## User Flows

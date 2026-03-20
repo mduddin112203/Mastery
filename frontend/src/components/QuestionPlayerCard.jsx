@@ -15,6 +15,12 @@ const CONFIDENCE_OPTIONS = [
 
 const CONFIDENCE_LABELS = { easy: 'Easy', ok: 'OK', hard: 'Hard' }
 
+function renderChoiceText(opt) {
+  if (typeof opt !== 'string') return String(opt)
+  // Preserve and reveal whitespace-sensitive options (e.g. "  hi  ".strip()).
+  return JSON.stringify(opt)
+}
+
 function shuffleIndices(length) {
   const out = Array.from({ length }, (_, i) => i)
   for (let i = out.length - 1; i > 0; i--) {
@@ -165,7 +171,7 @@ export default function QuestionPlayerCard({
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span>{String(opt)}</span>
+                  <span className="whitespace-pre-wrap font-mono">{renderChoiceText(opt)}</span>
                   <span className="shrink-0 text-right text-indigo-700">
                     {selIdxReview === i && correctReview && 'Your answer ✓'}
                     {selIdxReview === i && !correctReview && 'Your answer ✗'}
@@ -216,7 +222,7 @@ export default function QuestionPlayerCard({
                       : 'border-indigo-200 bg-white text-indigo-950 hover:border-indigo-300 hover:bg-indigo-50/50'
               }`}
             >
-              {String(choices[choiceIndex])}
+              <span className="whitespace-pre-wrap font-mono">{renderChoiceText(choices[choiceIndex])}</span>
               {submitted && choiceIndex === answerIndex && ' ✓'}
               {submitted && choiceIndex === selectedIndex && !isCorrectNow && choiceIndex !== answerIndex && ' ✗'}
             </button>

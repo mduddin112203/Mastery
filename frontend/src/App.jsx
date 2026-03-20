@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import BaseLayout from './components/BaseLayout'
 import ProtectedLayout from './components/ProtectedLayout'
+import AdminGate from './components/AdminGate'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
@@ -28,7 +29,7 @@ function AppRoutes() {
         <Route path="behavioral" element={<Navigate to="/practice" replace />} />
         <Route path="progress" element={<Progress />} />
         <Route path="profile" element={<Profile />} />
-        <Route path="admin" element={<Admin />} />
+        <Route path="admin" element={<AdminGate><Admin /></AdminGate>} />
       </Route>
     </Routes>
   )

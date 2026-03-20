@@ -18,3 +18,18 @@ export async function hasUserProfile(userId) {
     .maybeSingle()
   return !error && !!data
 }
+
+/**
+ * Returns true if the user has admin role.
+ * @param {string} userId
+ * @returns {Promise<boolean>}
+ */
+export async function isAdminUser(userId) {
+  if (!userId) return false
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle()
+  return !error && data?.role === 'admin'
+}

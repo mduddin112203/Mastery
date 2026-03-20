@@ -182,7 +182,9 @@ export default function Home() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-indigo-950">
-              {viewMode === 'past' ? `Pack — ${formatDate(packDate)}` : "Today's Pack"}
+              {viewMode === 'past'
+                ? `Pack — ${formatDate(packDate) || today}`
+                : "Today's Pack"}
               {isReadOnly && isToday && ' — Completed'}
             </h1>
             <p className="mt-1 text-sm text-indigo-700/80">

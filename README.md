@@ -70,43 +70,6 @@ Frontend runs on `http://localhost:5173`
 
 ---
 
-## Environment Variables
-
-### Frontend (`frontend/.env`)
-
-| Variable | Description |
-|----------|-------------|
-| `VITE_SUPABASE_URL` | Your Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Your Supabase publishable (anon) key |
-| `VITE_EDGE_FUNCTIONS_URL` | Base URL for Supabase Edge Functions if your app calls them |
-
-> **Never commit `.env` files.** Use `.env.example` as a template.
-
----
-
-## Database
-
-All tables live in **Supabase Postgres**. The full schema including RLS policies is in `database/schema.sql`.
-
-**Tables:**
-- `profiles` — links to `auth.users`, stores role
-- `user_settings` — goal, level, track, language
-- `questions` — question bank (all lanes)
-- `daily_packs` — one pack per user per day
-- `daily_pack_items` — the 3 questions inside each pack
-- `attempts` — tracks every answer
-- `behavioral_answers` — saved STAR stories
-- `reports` — flagged questions (optional)
-
-**Security:** Row Level Security (RLS) is enabled on all user-data tables. Users can only access their own rows (`auth.uid() = user_id`).
-
-**SQL files:**
-- `schema.sql` — tables, RLS, triggers (run first)
-- `seed.sql` — question bank (Code + System + Behavioral; run after schema and migrations)
-- `maintenance.sql` — optional scripts (e.g. remove duplicate questions)
-- `migrations/` — dated migrations (run in order after schema)
-
----
 
 ## Core Features
 
@@ -128,26 +91,4 @@ Streak counter, weekly activity chart, accuracy by lane/topic, weak topic detect
 ### Content Admin Panel
 Create/edit/disable questions, bulk import JSON packs, review flagged content.
 
----
-
-## User Flows
-
-- **New User:** Landing → Signup → Onboarding → Home → Today's Pack
-- **Daily Usage:** Home → Start Pack → Answer Cards → Explanation → Confidence → Complete → Streak Updates
-- **Practice:** Practice → Select Mode → Filters → Answer → Summary
-- **Behavioral:** Prompt → STAR Entry → Save → Library → Edit/Export
-- **Admin:** Admin → Manage Questions → Import Packs → Disable Flagged Content
-
----
-
-## UI Theme (Tailwind)
-
-| Token | Value |
-|-------|-------|
-| Primary | `#4F46E5` |
-| Background | `#F8FAFC` |
-| Card | `#FFFFFF` |
-| Text | `#0F172A` |
-| Border | `#E2E8F0` |
-
-**Lane accents:** Code = Indigo, System = Cyan, Behavioral = Violet
+-

@@ -76,8 +76,24 @@ Frontend runs on `http://localhost:5173`
 |----------|-------------|
 | `VITE_SUPABASE_URL` | Your Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Your Supabase publishable (anon) key |
+| `VITE_EDGE_FUNCTIONS_URL` | *(Optional)* Base URL for Supabase Edge Functions if your app calls them |
 
 > **Never commit `.env` files.** Use `.env.example` as a template.
+
+### Deploy frontend (Vercel)
+
+Supabase stays as-is; you only deploy the **React app** and mirror the same env vars in Vercel.
+
+1. **Import project** → connect this GitHub repo.
+2. **Root Directory:** `frontend` (important — not the monorepo root).
+3. **Framework Preset:** Vite (or “Other” with Build `npm run build`, Output `dist`).
+4. **Environment Variables** (Project → Settings → Environment Variables), same names as local:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_EDGE_FUNCTIONS_URL` if you use Edge Functions
+5. **Supabase Auth:** In Supabase Dashboard → Authentication → URL Configuration, add your Vercel URL to **Site URL** and **Redirect URLs** (e.g. `https://your-app.vercel.app` and `https://your-app.vercel.app/**`).
+
+`frontend/vercel.json` includes SPA rewrites so React Router routes work on refresh.
 
 ---
 

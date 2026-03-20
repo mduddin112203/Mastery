@@ -32,16 +32,11 @@ export async function getOrCreateTodayPack() {
         },
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        return {
-          packId: null,
-          source: null,
-          error: data?.error || res.statusText || 'Failed to generate pack',
-        }
-      }
-      if (data.pack_id) {
+      if (res.ok && data.pack_id) {
         return { packId: data.pack_id, source: data.source || 'seed', error: null }
       }
+      // Edge returned an error or no pack — fall through to direct RPC (same as skipping edge)
+      console.warn('Edge generate-daily-pack did not return a pack, using RPC', data?.error, data?.details)
     } catch (e) {
       console.warn('Edge function failed, falling back to RPC', e)
     }

@@ -174,7 +174,7 @@ begin
   new.updated_at = now();
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql set search_path = public;
 
 drop trigger if exists set_user_settings_updated_at on public.user_settings;
 create trigger set_user_settings_updated_at
@@ -200,7 +200,23 @@ begin
   insert into public.profiles (id) values (new.id);
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
+
+-- Supabase Security Advisor: ensure auth-related trigger functions have a fixed search_path.
+-- (sync_profile_email_from_auth may be present depending on which migrations were applied.)
+do $$
+begin
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'sync_profile_email_from_auth'
+      and p.pronargs = 0
+  ) then
+    execute 'alter function public.sync_profile_email_from_auth() set search_path = public';
+  end if;
+end $$;
 
 create trigger on_auth_user_created
   after insert on auth.users

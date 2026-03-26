@@ -177,28 +177,81 @@ export async function deleteQuestion(id) {
   return { error: error?.message || null }
 }
 
-export async function listUsersWithActivity({ days = 7 } = {}) {
-  let { data: profiles, error: profilesErr } = await supabase
+const DEFAULT_LIST_PAGE_SIZE = 25
+const FETCH_BATCH = 1000
+
+export async function getAdminDashboardCounts({ days = 7 } = {}) {
+  const since = new Date()
+  since.setDate(since.getDate() - Math.max(1, Number(days) || 7))
+  const sinceIso = since.toISOString()
+
+  const [qRes, pRes, openReportsRes] = await Promise.all([
+    supabase.from('questions').select('id', { count: 'exact', head: true }),
+    supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase.from('reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+  ])
+
+  const activeUserIds = new Set()
+  let from = 0
+  let attemptsErr = null
+  while (from < 500000) {
+    const { data: rows, error: attErr } = await supabase
+      .from('attempts')
+      .select('user_id')
+      .gte('created_at', sinceIso)
+      .range(from, from + FETCH_BATCH - 1)
+
+    if (attErr) {
+      attemptsErr = attErr.message
+      break
+    }
+    if (!rows?.length) break
+    for (const r of rows) {
+      if (r.user_id) activeUserIds.add(r.user_id)
+    }
+    if (rows.length < FETCH_BATCH) break
+    from += FETCH_BATCH
+  }
+
+  return {
+    questionBank: qRes.count ?? 0,
+    totalProfiles: pRes.count ?? 0,
+    openReports: openReportsRes.count ?? 0,
+    activeUsersWindow: activeUserIds.size,
+    error: qRes.error?.message || pRes.error?.message || openReportsRes.error?.message || attemptsErr || null,
+  }
+}
+
+export async function listUsersWithActivity({ days = 7, page = 1, pageSize = DEFAULT_LIST_PAGE_SIZE } = {}) {
+  const size = Math.min(100, Math.max(1, Number(pageSize) || DEFAULT_LIST_PAGE_SIZE))
+  const pg = Math.max(1, Number(page) || 1)
+  const from = (pg - 1) * size
+  const to = from + size - 1
+
+  let q = supabase
     .from('profiles')
-    .select('id, email, role, created_at')
+    .select('id, email, role, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(200)
+    .range(from, to)
+
+  let { data: profiles, error: profilesErr, count: total } = await q
 
   // Backward compatibility: older DBs may not have profiles.email yet.
   if (profilesErr?.message?.toLowerCase().includes('column profiles.email does not exist')) {
     const fallback = await supabase
       .from('profiles')
-      .select('id, role, created_at')
+      .select('id, role, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(200)
+      .range(from, to)
     profiles = fallback.data
     profilesErr = fallback.error
+    total = fallback.count
   }
 
-  if (profilesErr) return { users: [], error: profilesErr.message }
+  if (profilesErr) return { users: [], total: 0, error: profilesErr.message }
 
   const userIds = (profiles || []).map((p) => p.id)
-  if (userIds.length === 0) return { users: [], error: null }
+  if (userIds.length === 0) return { users: [], total: total || 0, error: null }
 
   const { data: settings } = await supabase
     .from('user_settings')
@@ -235,7 +288,7 @@ export async function listUsersWithActivity({ days = 7 } = {}) {
     last_active_at: statsByUser.get(p.id)?.last_active_at || null,
   }))
 
-  return { users, error: null }
+  return { users, total: total || 0, error: null }
 }
 
 export async function loadAdminAnalytics({ days = 30 } = {}) {
@@ -243,10 +296,14 @@ export async function loadAdminAnalytics({ days = 30 } = {}) {
   since.setDate(since.getDate() - Math.max(1, Number(days) || 30))
   const sinceIso = since.toISOString()
 
-  const { data: attempts, error } = await supabase
-    .from('attempts')
-    .select(
-      `
+  const attempts = []
+  let from = 0
+  let truncated = false
+  while (from < 1_000_000) {
+    const { data: batch, error } = await supabase
+      .from('attempts')
+      .select(
+        `
       is_correct,
       created_at,
       question_id,
@@ -257,11 +314,21 @@ export async function loadAdminAnalytics({ days = 30 } = {}) {
         prompt
       )
     `,
-    )
-    .gte('created_at', sinceIso)
-    .limit(5000)
+      )
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: true })
+      .range(from, from + FETCH_BATCH - 1)
 
-  if (error) return { analytics: null, error: error.message }
+    if (error) return { analytics: null, error: error.message }
+    if (!batch?.length) break
+    attempts.push(...batch)
+    if (batch.length < FETCH_BATCH) break
+    from += FETCH_BATCH
+    if (from >= 1_000_000) {
+      truncated = true
+      break
+    }
+  }
 
   const laneAgg = new Map()
   const topicAgg = new Map()
@@ -336,12 +403,18 @@ export async function loadAdminAnalytics({ days = 30 } = {}) {
       easiest,
       dailySeries,
       sampleAttempts: (attempts || []).length,
+      attemptsTruncated: truncated,
     },
     error: null,
   }
 }
 
-export async function listReports({ status = 'all' } = {}) {
+export async function listReports({ status = 'all', page = 1, pageSize = DEFAULT_LIST_PAGE_SIZE } = {}) {
+  const size = Math.min(100, Math.max(1, Number(pageSize) || DEFAULT_LIST_PAGE_SIZE))
+  const pg = Math.max(1, Number(page) || 1)
+  const from = (pg - 1) * size
+  const to = from + size - 1
+
   let q = supabase
     .from('reports')
     .select(
@@ -363,15 +436,16 @@ export async function listReports({ status = 'all' } = {}) {
         is_active
       )
     `,
+      { count: 'exact' },
     )
     .order('created_at', { ascending: false })
-    .limit(200)
+    .range(from, to)
 
   if (status !== 'all') q = q.eq('status', status)
 
-  const { data, error } = await q
-  if (error) return { reports: [], error: error.message }
-  return { reports: data || [], error: null }
+  const { data, error, count } = await q
+  if (error) return { reports: [], total: 0, error: error.message }
+  return { reports: data || [], total: count || 0, error: null }
 }
 
 export async function resolveReport(reportId) {

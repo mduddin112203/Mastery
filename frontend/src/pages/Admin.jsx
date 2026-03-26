@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   createQuestion,
   deleteQuestion,
+  getAdminDashboardCounts,
   listQuestions,
   listReports,
   listUsersWithActivity,
@@ -17,6 +18,8 @@ const TAB_OPTIONS = [
   { id: 'analytics', label: 'Analytics' },
   { id: 'reports', label: 'Reports' },
 ]
+
+const ADMIN_PAGE_SIZE = 25
 
 const defaultQuestion = {
   lane: 'code',
@@ -94,7 +97,7 @@ function DailyTrend({ points }) {
   const maxTotal = Math.max(...points.map((p) => p.total), 1)
   return (
     <div className="space-y-2">
-      {points.slice(-10).map((p) => (
+      {points.map((p) => (
         <div key={p.date}>
           <div className="flex justify-between text-xs text-indigo-700/80">
             <span>{p.date}</span>
@@ -130,6 +133,8 @@ export default function Admin() {
   const [savingQuestion, setSavingQuestion] = useState(false)
 
   const [users, setUsers] = useState([])
+  const [usersTotal, setUsersTotal] = useState(0)
+  const [uPage, setUPage] = useState(1)
   const [uLoading, setULoading] = useState(false)
 
   const [analytics, setAnalytics] = useState(null)
@@ -137,39 +142,66 @@ export default function Admin() {
   const [analyticsDays, setAnalyticsDays] = useState(30)
 
   const [reports, setReports] = useState([])
+  const [reportsTotal, setReportsTotal] = useState(0)
+  const [rPage, setRPage] = useState(1)
   const [rLoading, setRLoading] = useState(false)
   const [reportStatus, setReportStatus] = useState('open')
+
+  const [dashboardCounts, setDashboardCounts] = useState(null)
   const [resolvingId, setResolvingId] = useState(null)
   const [deactivatingId, setDeactivatingId] = useState(null)
 
-  const loadQuestions = useCallback(async () => {
+  const loadQuestions = useCallback(async (pageOverride) => {
+    const page = pageOverride ?? qPage
     setQLoading(true)
     setError(null)
     const { questions: data, total, error: err } = await listQuestions({
       ...qFilters,
-      page: qPage,
-      pageSize: 25,
+      page,
+      pageSize: ADMIN_PAGE_SIZE,
     })
     setQLoading(false)
     if (err) {
       setError(err)
       return
     }
+    const maxPage = Math.max(1, Math.ceil((total || 0) / ADMIN_PAGE_SIZE))
+    if (page > maxPage) {
+      setQPage(maxPage)
+      return
+    }
     setQuestions(data)
     setQuestionsTotal(total)
   }, [qFilters, qPage])
 
-  const loadUsers = useCallback(async () => {
+  const loadDashboardCounts = useCallback(async () => {
+    const data = await getAdminDashboardCounts({ days: 7 })
+    if (data.error) return
+    setDashboardCounts(data)
+  }, [])
+
+  const loadUsers = useCallback(async (pageOverride) => {
+    const page = pageOverride ?? uPage
     setULoading(true)
     setError(null)
-    const { users: data, error: err } = await listUsersWithActivity({ days: 7 })
+    const { users: data, total, error: err } = await listUsersWithActivity({
+      days: 7,
+      page,
+      pageSize: ADMIN_PAGE_SIZE,
+    })
     setULoading(false)
     if (err) {
       setError(err)
       return
     }
+    const maxPage = Math.max(1, Math.ceil((total || 0) / ADMIN_PAGE_SIZE))
+    if (page > maxPage) {
+      setUPage(maxPage)
+      return
+    }
     setUsers(data)
-  }, [])
+    setUsersTotal(total)
+  }, [uPage])
 
   const loadAnalytics = useCallback(async () => {
     setALoading(true)
@@ -183,17 +215,42 @@ export default function Admin() {
     setAnalytics(data)
   }, [analyticsDays])
 
-  const loadReports = useCallback(async () => {
+  const loadReports = useCallback(async (pageOverride) => {
+    const page = pageOverride ?? rPage
     setRLoading(true)
     setError(null)
-    const { reports: data, error: err } = await listReports({ status: reportStatus })
+    const { reports: data, total, error: err } = await listReports({
+      status: reportStatus,
+      page,
+      pageSize: ADMIN_PAGE_SIZE,
+    })
     setRLoading(false)
     if (err) {
       setError(err)
       return
     }
+    const maxPage = Math.max(1, Math.ceil((total || 0) / ADMIN_PAGE_SIZE))
+    if (page > maxPage) {
+      setRPage(maxPage)
+      return
+    }
     setReports(data)
-  }, [reportStatus])
+    setReportsTotal(total)
+  }, [reportStatus, rPage])
+
+  const patchFilters = useCallback((patch) => {
+    setQFilters((v) => ({ ...v, ...patch }))
+    setQPage(1)
+  }, [])
+
+  useEffect(() => {
+    queueMicrotask(() => loadDashboardCounts())
+  }, [loadDashboardCounts])
+
+  useEffect(() => {
+    if (tab !== 'users') return
+    queueMicrotask(() => loadDashboardCounts())
+  }, [tab, loadDashboardCounts])
 
   useEffect(() => {
     // Defer state updates to avoid react-hooks lint complaints about cascading renders.
@@ -205,10 +262,24 @@ export default function Admin() {
     })
   }, [tab, loadQuestions, loadUsers, loadAnalytics, loadReports])
 
-  const maxQPage = useMemo(() => Math.max(1, Math.ceil((questionsTotal || 0) / 25)), [questionsTotal])
-  const usersWithAttempts = useMemo(() => users.filter((u) => (u.attempts_last_window || 0) > 0).length, [users])
-  const openReports = useMemo(() => reports.filter((r) => (r.status || 'open') === 'open').length, [reports])
-  const resolvedReports = useMemo(() => reports.filter((r) => (r.status || 'open') === 'resolved').length, [reports])
+  const maxQPage = useMemo(
+    () => Math.max(1, Math.ceil((questionsTotal || 0) / ADMIN_PAGE_SIZE)),
+    [questionsTotal],
+  )
+  const maxUPage = useMemo(
+    () => Math.max(1, Math.ceil((usersTotal || 0) / ADMIN_PAGE_SIZE)),
+    [usersTotal],
+  )
+  const maxRPage = useMemo(
+    () => Math.max(1, Math.ceil((reportsTotal || 0) / ADMIN_PAGE_SIZE)),
+    [reportsTotal],
+  )
+  const questionBankValue = tab === 'questions' ? questionsTotal : dashboardCounts?.questionBank
+  const openReportsHint = useMemo(() => {
+    const open = dashboardCounts?.openReports
+    if (open == null) return 'Loading…'
+    return `${open} open in database · list below is paginated`
+  }, [dashboardCounts?.openReports])
   const choicePreview = useMemo(() => parseChoicesInput(draft.choices), [draft.choices])
 
   const beginCreate = () => {
@@ -247,6 +318,7 @@ export default function Admin() {
     setEditing(null)
     setDraft(defaultQuestion)
     loadQuestions()
+    loadDashboardCounts()
   }
 
   const toggleQuestion = async (q) => {
@@ -267,6 +339,7 @@ export default function Admin() {
       return
     }
     loadQuestions()
+    loadDashboardCounts()
   }
 
   const handleResolve = async (rep) => {
@@ -278,6 +351,7 @@ export default function Admin() {
       return
     }
     loadReports()
+    loadDashboardCounts()
   }
 
   const handleDeactivateFromReport = async (rep) => {
@@ -298,11 +372,32 @@ export default function Admin() {
         <h1 className="text-2xl font-semibold">Admin Control Center</h1>
         <p className="mt-1 text-sm text-indigo-700/80">Manage content quality, user health, analytics, and moderation workflows.</p>
 
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <MetricCard label="Question Bank" value={questionsTotal || '-'} hint="Loaded with current filters" />
-          <MetricCard label="Active Users (7d)" value={usersWithAttempts} hint={`${users.length} total visible users`} />
-          <MetricCard label="Open Reports" value={openReports} hint={`${resolvedReports} resolved in current view`} />
-          <MetricCard label="Attempts Sample" value={analytics?.sampleAttempts ?? '-'} hint="Based on selected analytics window" />
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+          <MetricCard
+            label="Question Bank"
+            value={questionBankValue ?? '-'}
+            hint={tab === 'questions' ? 'Matches filters above' : 'Total questions in database'}
+          />
+          <MetricCard
+            label="Total users"
+            value={dashboardCounts?.totalProfiles ?? '-'}
+            hint="All registered profiles"
+          />
+          <MetricCard
+            label="Active (7d)"
+            value={dashboardCounts?.activeUsersWindow ?? '-'}
+            hint="Users with ≥1 attempt in the last 7 days"
+          />
+          <MetricCard label="Open Reports" value={dashboardCounts?.openReports ?? '-'} hint={openReportsHint} />
+          <MetricCard
+            label="Attempts (window)"
+            value={analytics?.sampleAttempts ?? '-'}
+            hint={
+              analytics?.attemptsTruncated
+                ? 'Aggregates use up to 1M attempts in this window (batched)'
+                : 'All attempts in the selected window (loaded in batches)'
+            }
+          />
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">
@@ -333,25 +428,34 @@ export default function Admin() {
             <div className="rounded-xl border border-indigo-200 bg-white p-4">
               <p className="text-sm font-semibold text-indigo-900">Filters</p>
               <div className="mt-3 grid grid-cols-2 md:grid-cols-6 gap-2">
-                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.lane} onChange={(e) => setQFilters((v) => ({ ...v, lane: e.target.value }))}>
+                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.lane} onChange={(e) => patchFilters({ lane: e.target.value })}>
                   <option value="all">All lanes</option><option value="code">Code</option><option value="system">System</option><option value="behavioral">Behavioral</option>
                 </select>
-                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.level} onChange={(e) => setQFilters((v) => ({ ...v, level: e.target.value }))}>
+                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.level} onChange={(e) => patchFilters({ level: e.target.value })}>
                   <option value="all">All levels</option><option value="entry">Entry</option><option value="mid">Mid</option><option value="senior">Senior</option>
                 </select>
-                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.track} onChange={(e) => setQFilters((v) => ({ ...v, track: e.target.value }))}>
+                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.track} onChange={(e) => patchFilters({ track: e.target.value })}>
                   <option value="all">All tracks</option><option value="general">General</option><option value="frontend">Frontend</option><option value="backend">Backend</option>
                 </select>
-                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.language} onChange={(e) => setQFilters((v) => ({ ...v, language: e.target.value }))}>
+                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.language} onChange={(e) => patchFilters({ language: e.target.value })}>
                   <option value="all">All languages</option><option value="javascript">JavaScript</option><option value="python">Python</option><option value="java">Java</option><option value="null">No language</option>
                 </select>
-                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.active} onChange={(e) => setQFilters((v) => ({ ...v, active: e.target.value }))}>
+                <select className="rounded border border-indigo-200 px-2 py-1.5 text-sm" value={qFilters.active} onChange={(e) => patchFilters({ active: e.target.value })}>
                   <option value="all">All status</option><option value="active">Active</option><option value="inactive">Inactive</option>
                 </select>
-                <input className="rounded border border-indigo-200 px-2 py-1.5 text-sm" placeholder="topic contains..." value={qFilters.topic} onChange={(e) => setQFilters((v) => ({ ...v, topic: e.target.value }))} />
+                <input className="rounded border border-indigo-200 px-2 py-1.5 text-sm" placeholder="topic contains..." value={qFilters.topic} onChange={(e) => patchFilters({ topic: e.target.value })} />
               </div>
               <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => { setQPage(1); loadQuestions() }} className="rounded bg-indigo-600 px-3 py-1.5 text-sm text-white">Apply</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQPage(1)
+                    loadQuestions(1)
+                  }}
+                  className="rounded bg-indigo-600 px-3 py-1.5 text-sm text-white"
+                >
+                  Apply
+                </button>
                 <button type="button" onClick={beginCreate} className="rounded border border-indigo-200 px-3 py-1.5 text-sm text-indigo-800">New question</button>
               </div>
             </div>
@@ -408,10 +512,17 @@ export default function Admin() {
             <div className="rounded-xl border border-indigo-200 bg-white overflow-hidden">
               <div className="px-4 py-3 border-b border-indigo-100 flex items-center justify-between">
                 <p className="text-sm font-semibold text-indigo-900">Questions ({questionsTotal})</p>
-                <div className="flex items-center gap-2 text-sm">
-                  <button type="button" disabled={qPage <= 1} onClick={() => setQPage((p) => Math.max(1, p - 1))} className="rounded border border-indigo-200 px-2 py-1 disabled:opacity-50">Prev</button>
-                  <span>Page {qPage} / {maxQPage}</span>
-                  <button type="button" disabled={qPage >= maxQPage} onClick={() => setQPage((p) => Math.min(maxQPage, p + 1))} className="rounded border border-indigo-200 px-2 py-1 disabled:opacity-50">Next</button>
+                <div className="flex flex-col items-end gap-1 text-sm sm:flex-row sm:items-center sm:gap-3">
+                  <span className="text-xs text-indigo-700/80">
+                    {questionsTotal > 0
+                      ? `Showing ${(qPage - 1) * ADMIN_PAGE_SIZE + 1}–${Math.min(qPage * ADMIN_PAGE_SIZE, questionsTotal)} of ${questionsTotal}`
+                      : 'No questions match filters'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={qPage <= 1} onClick={() => setQPage((p) => Math.max(1, p - 1))} className="rounded border border-indigo-200 px-2 py-1 disabled:opacity-50">Prev</button>
+                    <span>Page {qPage} / {maxQPage}</span>
+                    <button type="button" disabled={qPage >= maxQPage} onClick={() => setQPage((p) => Math.min(maxQPage, p + 1))} className="rounded border border-indigo-200 px-2 py-1 disabled:opacity-50">Next</button>
+                  </div>
                 </div>
               </div>
               {qLoading ? (
@@ -442,9 +553,34 @@ export default function Admin() {
 
         {tab === 'users' && (
           <div className="mt-6 rounded-xl border border-indigo-200 bg-white overflow-hidden">
-            <div className="px-4 py-3 border-b border-indigo-100 flex items-center justify-between">
-              <p className="text-sm font-semibold text-indigo-900">Users (last 7 day activity)</p>
-              <button type="button" onClick={loadUsers} className="rounded border border-indigo-200 px-2 py-1 text-xs text-indigo-800">Refresh</button>
+            <div className="px-4 py-2.5 border-b border-indigo-100 bg-indigo-50/70 text-sm text-indigo-900">
+              <span className="font-semibold">Total users:</span>{' '}
+              {dashboardCounts?.totalProfiles ?? usersTotal ?? '—'}
+              <span className="mx-2 text-indigo-400">·</span>
+              <span className="font-semibold">Active (7d):</span>{' '}
+              {dashboardCounts?.activeUsersWindow ?? '—'}
+              <span className="block mt-1 text-xs text-indigo-700/80 font-normal">
+                The list below is paginated; row-level &quot;attempts(7d)&quot; is per user.
+              </span>
+            </div>
+            <div className="px-4 py-3 border-b border-indigo-100 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-indigo-900">User directory ({usersTotal} total)</p>
+                <p className="text-xs text-indigo-700/80">Activity counts are for the last 7 days.</p>
+              </div>
+              <div className="flex flex-col items-end gap-1 text-sm sm:flex-row sm:items-center sm:gap-3">
+                <span className="text-xs text-indigo-700/80">
+                  {usersTotal > 0
+                    ? `Showing ${(uPage - 1) * ADMIN_PAGE_SIZE + 1}–${Math.min(uPage * ADMIN_PAGE_SIZE, usersTotal)} of ${usersTotal}`
+                    : 'No users'}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button type="button" disabled={uPage <= 1} onClick={() => setUPage((p) => Math.max(1, p - 1))} className="rounded border border-indigo-200 px-2 py-1 text-xs disabled:opacity-50">Prev</button>
+                  <span className="text-xs">Page {uPage} / {maxUPage}</span>
+                  <button type="button" disabled={uPage >= maxUPage} onClick={() => setUPage((p) => Math.min(maxUPage, p + 1))} className="rounded border border-indigo-200 px-2 py-1 text-xs disabled:opacity-50">Next</button>
+                  <button type="button" onClick={() => loadUsers()} className="rounded border border-indigo-200 px-2 py-1 text-xs text-indigo-800">Refresh</button>
+                </div>
+              </div>
             </div>
             {uLoading ? (
               <p className="p-4 text-sm text-indigo-700/80">Loading users…</p>
@@ -480,7 +616,10 @@ export default function Admin() {
               {aLoading ? (
                 <p className="mt-3 text-sm text-indigo-700/80">Loading analytics…</p>
               ) : analytics ? (
-                <p className="mt-3 text-sm text-indigo-700/80">Sample attempts: {analytics.sampleAttempts}</p>
+                <p className="mt-3 text-sm text-indigo-700/80">
+                  Attempts in window: {analytics.sampleAttempts}
+                  {analytics.attemptsTruncated ? ' (capped at 1M rows for performance)' : ''}
+                </p>
               ) : null}
             </div>
 
@@ -488,7 +627,7 @@ export default function Admin() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="rounded-xl border border-indigo-200 bg-white p-4">
                   <p className="font-semibold text-sm text-indigo-900">Daily Attempts Trend</p>
-                  <div className="mt-2">
+                  <div className="mt-2 max-h-80 overflow-y-auto pr-1">
                     <DailyTrend points={analytics.dailySeries || []} />
                   </div>
                 </div>
@@ -523,7 +662,7 @@ export default function Admin() {
                     <div>
                       <p className="font-medium text-indigo-900">Hardest</p>
                       <ul className="mt-1 space-y-1">
-                        {(analytics.hardest || []).slice(0, 5).map((x) => (
+                        {(analytics.hardest || []).slice(0, 10).map((x) => (
                           <li key={x.id} className="text-indigo-700/90">
                             {percent(x.accuracy)} • {x.prompt}
                           </li>
@@ -533,7 +672,7 @@ export default function Admin() {
                     <div>
                       <p className="font-medium text-indigo-900">Easiest</p>
                       <ul className="mt-1 space-y-1">
-                        {(analytics.easiest || []).slice(0, 5).map((x) => (
+                        {(analytics.easiest || []).slice(0, 10).map((x) => (
                           <li key={x.id} className="text-indigo-700/90">
                             {percent(x.accuracy)} • {x.prompt}
                           </li>
@@ -549,15 +688,36 @@ export default function Admin() {
 
         {tab === 'reports' && (
           <div className="mt-6 rounded-xl border border-indigo-200 bg-white overflow-hidden">
-            <div className="px-4 py-3 border-b border-indigo-100 flex items-center justify-between">
-              <p className="text-sm font-semibold text-indigo-900">Reports queue</p>
-              <div className="flex items-center gap-2">
-                <select value={reportStatus} onChange={(e) => setReportStatus(e.target.value)} className="rounded border border-indigo-200 px-2 py-1.5 text-sm">
-                  <option value="open">Open</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="all">All</option>
-                </select>
-                <button type="button" onClick={loadReports} className="rounded border border-indigo-200 px-2 py-1 text-xs text-indigo-800">Refresh</button>
+            <div className="px-4 py-3 border-b border-indigo-100 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <p className="text-sm font-semibold text-indigo-900">Reports ({reportsTotal})</p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={reportStatus}
+                    onChange={(e) => {
+                      setReportStatus(e.target.value)
+                      setRPage(1)
+                    }}
+                    className="rounded border border-indigo-200 px-2 py-1.5 text-sm"
+                  >
+                    <option value="open">Open</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="all">All</option>
+                  </select>
+                  <button type="button" onClick={() => loadReports()} className="rounded border border-indigo-200 px-2 py-1 text-xs text-indigo-800">Refresh</button>
+                </div>
+                <div className="flex flex-col items-end gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
+                  <span className="text-xs text-indigo-700/80">
+                    {reportsTotal > 0
+                      ? `Showing ${(rPage - 1) * ADMIN_PAGE_SIZE + 1}–${Math.min(rPage * ADMIN_PAGE_SIZE, reportsTotal)} of ${reportsTotal}`
+                      : 'No reports in this filter'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button type="button" disabled={rPage <= 1} onClick={() => setRPage((p) => Math.max(1, p - 1))} className="rounded border border-indigo-200 px-2 py-1 text-xs disabled:opacity-50">Prev</button>
+                    <span className="text-xs">Page {rPage} / {maxRPage}</span>
+                    <button type="button" disabled={rPage >= maxRPage} onClick={() => setRPage((p) => Math.min(maxRPage, p + 1))} className="rounded border border-indigo-200 px-2 py-1 text-xs disabled:opacity-50">Next</button>
+                  </div>
+                </div>
               </div>
             </div>
             {rLoading ? (

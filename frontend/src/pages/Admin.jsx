@@ -278,7 +278,8 @@ export default function Admin() {
   const openReportsHint = useMemo(() => {
     const open = dashboardCounts?.openReports
     if (open == null) return 'Loading…'
-    return `${open} open in database · list below is paginated`
+    if (open === 0) return 'No pending reports'
+    return `${open} pending review`
   }, [dashboardCounts?.openReports])
   const choicePreview = useMemo(() => parseChoicesInput(draft.choices), [draft.choices])
 
@@ -394,8 +395,8 @@ export default function Admin() {
             value={analytics?.sampleAttempts ?? '-'}
             hint={
               analytics?.attemptsTruncated
-                ? 'Aggregates use up to 1M attempts in this window (batched)'
-                : 'All attempts in the selected window (loaded in batches)'
+                ? 'High activity; figures use a summarized sample'
+                : 'Matches the date range on the Analytics tab'
             }
           />
         </div>
@@ -560,7 +561,7 @@ export default function Admin() {
               <span className="font-semibold">Active (7d):</span>{' '}
               {dashboardCounts?.activeUsersWindow ?? '—'}
               <span className="block mt-1 text-xs text-indigo-700/80 font-normal">
-                The list below is paginated; row-level &quot;attempts(7d)&quot; is per user.
+                Each row shows that account's practice activity and last active time (rolling 7 days).
               </span>
             </div>
             <div className="px-4 py-3 border-b border-indigo-100 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -617,8 +618,8 @@ export default function Admin() {
                 <p className="mt-3 text-sm text-indigo-700/80">Loading analytics…</p>
               ) : analytics ? (
                 <p className="mt-3 text-sm text-indigo-700/80">
-                  Attempts in window: {analytics.sampleAttempts}
-                  {analytics.attemptsTruncated ? ' (capped at 1M rows for performance)' : ''}
+                  Attempts in selected window: {analytics.sampleAttempts}
+                  {analytics.attemptsTruncated ? ' — summary based on a large activity period' : ''}
                 </p>
               ) : null}
             </div>

@@ -68,6 +68,10 @@ npm run dev
 
 Frontend runs on `http://localhost:5173`
 
+## Demo Video
+
+Watch the walkthrough video: https://youtu.be/mn85yKDZTCI
+
 ---
 
 
